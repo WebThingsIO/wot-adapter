@@ -1,4 +1,4 @@
-#wot-adapter
+# wot-adapter
 
 This is an adapter add-on for [WebThings Gateway](https://github.com/WebThingsIO/gateway) that allows a user to discover W3C compliant WoT devices on their network.
 
