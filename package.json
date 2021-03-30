@@ -1,0 +1,28 @@
+{
+  "name": "wot-adapter",
+  "version": "0.1.0",
+  "description": "Support for W3C compliant native web things",
+  "main": "out/src/index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WebThingsIO/wot-adapter.git"
+  },
+  "keywords": [
+    "iot",
+    "wot",
+    "web"
+  ],
+  "author": "WebThingsIO",
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/WebThingsIO/wot-adapter/issues"
+  },
+  "homepage": "https://github.com/WebThingsIO/wot-adapter#readme",
+  "devDependencies": {
+    "gateway-addon": "^1.1.0-alpha.2",
+    "typescript": "^4.2.3"
+  }
+}
