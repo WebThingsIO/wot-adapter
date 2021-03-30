@@ -1,0 +1,74 @@
+{
+    "author": "WebThingsIO",
+    "description": "Support for W3C compliant native web things",
+    "gateway_specific_settings": {
+        "webthings": {
+            "exec": "{nodeLoader} {path}",
+            "primary_type": "adapter",
+            "strict_max_version": "*",
+            "strict_min_version": "0.10.0",
+            "enabled": true
+        }
+    },
+    "homepage_url": "https://github.com/WebThingsIO/wot-adapter",
+    "id": "wot-adapter",
+    "license": "MPL-2.0",
+    "manifest_version": 1,
+    "name": "W3C Web Thing",
+    "options": {
+        "default": {
+            "urls": [],
+            "pollInterval": 5
+        },
+        "schema": {
+            "type": "object",
+            "required": [
+                "urls",
+                "pollInterval"
+            ],
+            "properties": {
+                "urls": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "required": [
+                            "href"
+                        ],
+                        "properties": {
+                            "href": {
+                                "description": "Base URL of web thing",
+                                "type": "string"
+                            },
+                            "authentication": {
+                                "description": "Authentication credentials",
+                                "type": "object",
+                                "required": [
+                                    "method"
+                                ],
+                                "properties": {
+                                    "method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "none",
+                                            "jwt"
+                                        ]
+                                    },
+                                    "token": {
+                                        "description": "Token (for JWT)",
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "pollInterval": {
+                    "description": "The interval, in seconds, at which to poll property values.",
+                    "type": "number"
+                }
+            }
+        }
+    },
+    "short_name": "W3C Web Thing",
+    "version": "0.1.0"
+}
