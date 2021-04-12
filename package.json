@@ -4,6 +4,8 @@
   "description": "Support for W3C compliant native web things",
   "main": "out/src/index.js",
   "scripts": {
+    "lint": "eslint src",
+    "prettier": "prettier -w '*.js' 'src/**/*.ts'",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -22,7 +24,12 @@
   },
   "homepage": "https://github.com/WebThingsIO/wot-adapter#readme",
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^4.21.0",
+    "@typescript-eslint/parser": "^4.21.0",
+    "eslint": "^7.24.0",
+    "eslint-config-prettier": "^8.1.0",
     "gateway-addon": "^1.1.0-alpha.2",
+    "prettier": "^2.2.1",
     "typescript": "^4.2.3"
   }
 }
