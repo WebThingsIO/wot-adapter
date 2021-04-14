@@ -6,7 +6,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.*
  */
 
-import { AddonManagerProxy } from 'gateway-addon/lib/addon-manager-proxy';
+import { AddonManagerProxy, Adapter } from 'gateway-addon';
 import manifest from '../manifest.json';
 
 class WoTAdapter extends Adapter {
