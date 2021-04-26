@@ -13,6 +13,7 @@ import { WoTDevice } from './wot-device';
 
 const POLL_INTERVAL = 5 * 1000;
 
+type WebThingEndpoint = { href: string; authentication: any };
 // TODO: specify exact types for `any` (everywhere where possible)
 
 function getHeaders(authentication: any, includeContentType = false) {
@@ -220,48 +221,28 @@ export class WoTAdapter extends Adapter {
   }
 }
 
-export default function loadWoTAdapter(manager: AddonManagerProxy) {
-  const adapter = new WoTAdapter(manager);
+export default async function loadWoTAdapter(manager: AddonManagerProxy): Promise<void> {
+  try {
+    const adapter = new WoTAdapter(manager);
+    const db = new Database(manifest.id);
+    await db.open();
+    const configuration = await db.loadConfig();
 
-  const db = new Database(manifest.id);
-  db.open()
-    .then(() => {
-      return db.loadConfig();
-    })
-    .then((config: any) => {
-      if (typeof config.pollInterval === 'number') {
-        adapter.pollInterval = config.pollInterval * 1000;
-      }
+    if (typeof configuration.pollInterval === 'number') {
+      adapter.pollInterval = configuration.pollInterval * 1000;
+    }
 
-      // Transition from old config format
-      let modified = false;
-      const urls = [];
-      for (const entry of config.urls) {
-        if (typeof entry === 'string') {
-          urls.push({
-            href: entry,
-            authentication: {
-              method: 'none',
-            },
-          });
+    // TODO: validate database entry
+    const urls: Array<WebThingEndpoint> = configuration.urls as Array<WebThingEndpoint>;
 
-          modified = true;
-        } else {
-          urls.push(entry);
-        }
-      }
+    // Load already saved Web Things
+    for (const url of urls) {
+      adapter.loadThing(url);
+    }
 
-      if (modified) {
-        config.urls = urls;
-        db.saveConfig(config);
-      }
-
-      for (const url of config.urls) {
-        adapter.loadThing(url);
-      }
-
-      // TODO: Uncomment after implementing
-      // startDNSDiscovery(adapter);
-    })
-    .catch(console.error);
+    // Start discovery
+    // TODO: call dns discovery
+  } catch (error) {
+    console.log(error);
+  }
 }
