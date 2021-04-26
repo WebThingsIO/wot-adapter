@@ -24,6 +24,10 @@
     "url": "https://github.com/WebThingsIO/wot-adapter/issues"
   },
   "homepage": "https://github.com/WebThingsIO/wot-adapter#readme",
+  "dependencies": {
+    "@node-wot/binding-http": "^0.7.5",
+    "@node-wot/core": "^0.7.5"
+  },
   "peerDependencies": {
     "gateway-addon": "^1.1.0-alpha.2"
   },
