@@ -106,7 +106,7 @@ async function fetchWithRetries(url: string, options: DiscoveryOptions = {
     return await fetch(url, { headers: getHeaders(options.authentication) });
   } catch (e) {
     // Retry the connection at a 2 second interval up to 5 times.
-    if (retryCount >= options.retries) {
+    if (retryCount >= options.retries!) {
       throw new Error(`Failed to connect to ${url}: ${e}`);
     } else {
       return new Promise((resolve, reject) => {
