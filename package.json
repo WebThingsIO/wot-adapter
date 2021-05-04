@@ -26,12 +26,14 @@
   "homepage": "https://github.com/WebThingsIO/wot-adapter#readme",
   "dependencies": {
     "@node-wot/binding-http": "^0.7.5",
-    "@node-wot/core": "^0.7.5"
+    "@node-wot/core": "^0.7.5",
+    "dnssd": "^0.4.1"
   },
   "peerDependencies": {
     "gateway-addon": "^1.1.0-alpha.2"
   },
   "devDependencies": {
+    "@types/dnssd": "^0.4.1",
     "@types/node": "^14.14.37",
     "@types/ws": "^7.4.1",
     "@typescript-eslint/eslint-plugin": "^4.21.0",
