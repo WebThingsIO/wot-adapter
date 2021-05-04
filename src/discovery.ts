@@ -165,6 +165,6 @@ Promise<[Record<string, unknown>, boolean]> {
   }
 }
 
-export function discover(): Discovery {
+export function multicast(): Discovery {
   return new MDNSDiscovery();
 }
