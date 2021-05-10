@@ -5,7 +5,7 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.*
  */
-import EventEmitter from 'node:events';
+import EventEmitter from 'events';
 import { ServiceType, Browser } from 'dnssd';
 import * as crypto from 'crypto';
 
