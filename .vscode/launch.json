@@ -1,0 +1,55 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Tests",
+            "request": "launch",
+            "runtimeArgs": [
+                "run-script",
+                "test",
+                "--timeout",
+                "100000",
+            ],
+            "runtimeExecutable": "npm",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node"
+        },
+        {
+            "name": "Test current file",
+            "request": "launch",
+            "runtimeArgs": [
+                "node_modules/.bin/mocha",
+                "--timeout",
+                "100000",
+                "-r",
+                "ts-node/register",
+                "${file}"
+            ],
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node"  
+        },
+        {
+            "name": "Single test",
+            "request": "launch",
+            "runtimeArgs": [
+                "run-script",
+                "test",
+                "--",
+                "-g",
+                "${selectedText}",
+                "--timeout",
+                "100000"
+            ],
+            "runtimeExecutable": "npm",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "type": "node"
+        }
+    ],
+    "compounds": []
+}
