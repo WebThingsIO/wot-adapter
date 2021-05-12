@@ -4,9 +4,11 @@ import * as schema from 'gateway-addon/lib/schema';
 import { ConsumedThing } from 'wot-typescript-definitions';
 
 
-export class WoTDevice extends Device {
+export default class WoTDevice extends Device {
 
   private readonly thing: ConsumedThing;
+
+  private openHandles: Array<string | NodeJS.Timeout>;
 
   public constructor(
     adapter: WoTAdapter,
@@ -23,6 +25,7 @@ export class WoTDevice extends Device {
     this.setDescription(td.description as string);
     this.setContext('https://www.w3.org/2019/wot/td/v1');
 
+    this.openHandles = [];
     if(td.links) {
       const links = td.links as schema.Link[];
       for (const link of links) {
@@ -76,15 +79,18 @@ export class WoTDevice extends Device {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private observeProperty(td: Record<string, unknown>, property: Property<any>): void {
-    if((td[property.getName()] as schema.Property).observable) {
+    const properties = td.properties as Record<string, schema.Property>;
+    if(properties[property.getName()].observable) {
       this.thing.observeProperty(property.getName(), (value) => {
         property.setCachedValueAndNotify(value);
       });
+      this.openHandles.push(property.getName());
     }else{
-      setInterval(async () => {
+      const timeout = setInterval(async () => {
         const value = await this.thing.readProperty(property.getName());
         property.setCachedValueAndNotify(value);
       }, 5000); // TODO: add configuration parameter
+      this.openHandles.push(timeout);
     }
   }
 
@@ -92,5 +98,16 @@ export class WoTDevice extends Device {
     this.thing.subscribeEvent(eventName, (data) => {
       this.eventNotify(new Event(this, eventName, data));
     });
+  }
+
+  public destroy(): void {
+    // close all the open handles
+    for (const handle of this.openHandles) {
+      if(typeof (handle) === 'string') {
+        this.thing.unobserveProperty(handle);
+      }else{
+        clearInterval(handle);
+      }
+    }
   }
 }
