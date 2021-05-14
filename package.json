@@ -27,7 +27,10 @@
   "dependencies": {
     "@node-wot/binding-http": "^0.7.5",
     "@node-wot/core": "^0.7.5",
-    "dnssd": "^0.4.1"
+    "bufferutil": "^4.0.1",
+    "dnssd": "^0.4.1",
+    "gateway-addon": "^1.1.0-alpha.2",
+    "utf-8-validate": "^5.0.2"
   },
   "peerDependencies": {
     "gateway-addon": "^1.1.0-alpha.2"

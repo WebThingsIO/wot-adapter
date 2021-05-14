@@ -3,12 +3,16 @@ import { Action, Device, Event, Property } from 'gateway-addon';
 import * as schema from 'gateway-addon/lib/schema';
 import { ConsumedThing } from 'wot-typescript-definitions';
 
-
+import { WoTDeviceProperty } from './wot-device-property';
 export default class WoTDevice extends Device {
 
   private readonly thing: ConsumedThing;
 
   private openHandles: Array<string | NodeJS.Timeout>;
+
+  public getThing(): ConsumedThing {
+    return this.thing;
+  }
 
   public constructor(
     adapter: WoTAdapter,
@@ -37,7 +41,7 @@ export default class WoTDevice extends Device {
       const properties = td.properties as { [k: string]: schema.Property };
       for (const propertyName in properties) {
         const property = properties[propertyName];
-        const deviceProperty = new Property(this, propertyName, property);
+        const deviceProperty = new WoTDeviceProperty(this, propertyName, property);
         this.addProperty(deviceProperty);
         this.observeProperty(td, deviceProperty);
       }
@@ -65,7 +69,7 @@ export default class WoTDevice extends Device {
     // Note: currently invoking an Action is a syncronous operation.
     action.start();
     try {
-      await this.thing.invokeAction(action.getName(), action.getInput);
+      await this.thing.invokeAction(action.getName(), action.getInput());
       // TODO: correctly handle the output. WebThingAPI does not have action outputs
     } catch (error) {
       console.log(`Failed to perform action: ${error}`);
@@ -80,7 +84,8 @@ export default class WoTDevice extends Device {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private observeProperty(td: Record<string, unknown>, property: Property<any>): void {
     const properties = td.properties as Record<string, schema.Property>;
-    if(properties[property.getName()].observable) {
+    const schProp: schema.Property = properties[property.getName()];
+    if(schProp.observable) {
       this.thing.observeProperty(property.getName(), (value) => {
         property.setCachedValueAndNotify(value);
       });
