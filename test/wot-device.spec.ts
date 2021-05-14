@@ -36,8 +36,8 @@ describe('WoT Device tests', () => {
     };
 
     testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
-    testDevice.setProperty('testProperty', 1);
-    expect(mockConsumedThing.writeProperty.calledOnceWith('testProperty', 1)).true;
+    testDevice.setProperty('test', 1);
+    expect(mockConsumedThing.writeProperty).calledOnceWith('test', 1);
     testDevice.destroy();
   });
 
@@ -56,6 +56,7 @@ describe('WoT Device tests', () => {
 
     expect(value).be.eqls(1);
     expect(mockConsumedThing.readProperty).calledOnceWith('test');
+
     testDevice.destroy();
   });
 
