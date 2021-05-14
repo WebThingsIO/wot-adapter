@@ -1,14 +1,25 @@
+/**
+ * wot-device.ts
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.*
+ */
 import { WoTAdapter } from './wot-adapter';
 import { Action, Device, Event, Property } from 'gateway-addon';
 import * as schema from 'gateway-addon/lib/schema';
 import { ConsumedThing } from 'wot-typescript-definitions';
 
-
+import { WoTDeviceProperty } from './wot-device-property';
 export default class WoTDevice extends Device {
 
-  private readonly thing: ConsumedThing;
+  private readonly _thing: ConsumedThing;
 
   private openHandles: Array<string | NodeJS.Timeout>;
+
+  public get thing(): ConsumedThing {
+    return this._thing;
+  }
 
   public constructor(
     adapter: WoTAdapter,
@@ -19,7 +30,7 @@ export default class WoTDevice extends Device {
     super(adapter, id);
 
     // TODO: TD validation ?
-    this.thing = thing;
+    this._thing = thing;
     this.setTitle(td.title as string);
     this.setTypes(td['@type'] as string[] || []);
     this.setDescription(td.description as string);
@@ -37,7 +48,7 @@ export default class WoTDevice extends Device {
       const properties = td.properties as { [k: string]: schema.Property };
       for (const propertyName in properties) {
         const property = properties[propertyName];
-        const deviceProperty = new Property(this, propertyName, property);
+        const deviceProperty = new WoTDeviceProperty(this, propertyName, property);
         this.addProperty(deviceProperty);
         this.observeProperty(td, deviceProperty);
       }
@@ -65,7 +76,7 @@ export default class WoTDevice extends Device {
     // Note: currently invoking an Action is a syncronous operation.
     action.start();
     try {
-      await this.thing.invokeAction(action.getName(), action.getInput);
+      await this.thing.invokeAction(action.getName(), action.getInput());
       // TODO: correctly handle the output. WebThingAPI does not have action outputs
     } catch (error) {
       console.log(`Failed to perform action: ${error}`);
@@ -80,7 +91,8 @@ export default class WoTDevice extends Device {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private observeProperty(td: Record<string, unknown>, property: Property<any>): void {
     const properties = td.properties as Record<string, schema.Property>;
-    if(properties[property.getName()].observable) {
+    const schProp: schema.Property = properties[property.getName()];
+    if(schProp.observable) {
       this.thing.observeProperty(property.getName(), (value) => {
         property.setCachedValueAndNotify(value);
       });
