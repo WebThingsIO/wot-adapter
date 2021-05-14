@@ -13,12 +13,12 @@ import { ConsumedThing } from 'wot-typescript-definitions';
 import { WoTDeviceProperty } from './wot-device-property';
 export default class WoTDevice extends Device {
 
-  private readonly thing: ConsumedThing;
+  private readonly _thing: ConsumedThing;
 
   private openHandles: Array<string | NodeJS.Timeout>;
 
-  public getThing(): ConsumedThing {
-    return this.thing;
+  public get thing(): ConsumedThing {
+    return this._thing;
   }
 
   public constructor(
@@ -30,7 +30,7 @@ export default class WoTDevice extends Device {
     super(adapter, id);
 
     // TODO: TD validation ?
-    this.thing = thing;
+    this._thing = thing;
     this.setTitle(td.title as string);
     this.setTypes(td['@type'] as string[] || []);
     this.setDescription(td.description as string);

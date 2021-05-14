@@ -7,26 +7,26 @@
  */
 import { ConsumedThing } from 'wot-typescript-definitions';
 import { Property } from 'gateway-addon';
-import * as schema from 'gateway-addon/lib/schema';
-import * as WD from './wot-device';
+import { Any, Property as PropertySchema } from 'gateway-addon/lib/schema';
+import WoTDevice from './wot-device';
 
 
-export class WoTDeviceProperty<T extends schema.Any> extends Property<T> {
-  private __dev: WD.default;
+export class WoTDeviceProperty<T extends Any> extends Property<T> {
+  private readonly _device: WoTDevice;
 
-  public constructor(device: WD.default, name: string, propertyDescr: schema.Property) {
+  public constructor(device: WoTDevice, name: string, propertyDescr: PropertySchema) {
     super(device, name, propertyDescr);
-    this.__dev = device;
+    this._device = device;
   }
 
   setValue(value: T): Promise<T> {
-    const c: ConsumedThing = this.__dev.getThing();
-    c.writeProperty(this.getName(), value);
+    const thing: ConsumedThing = this._device.thing;
+    thing.writeProperty(this.getName(), value);
     return super.setValue(value);
   }
 
   getValue(): Promise<T> {
-    const c: ConsumedThing = this.__dev.getThing();
-    return c.readProperty(this.getName());
+    const thing: ConsumedThing = this._device.thing;
+    return thing.readProperty(this.getName());
   }
 };
