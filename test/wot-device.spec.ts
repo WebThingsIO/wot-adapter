@@ -34,8 +34,8 @@ describe('WoT Device tests', () => {
         },
       },
     };
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
     testDevice.setProperty('test', 1);
     expect(mockConsumedThing.writeProperty).calledOnceWith('test', 1);
     testDevice.destroy();
@@ -49,8 +49,8 @@ describe('WoT Device tests', () => {
         },
       },
     };
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
     mockConsumedThing.readProperty.returns(Promise.resolve(1));
     const value = await testDevice.getProperty('test');
 
@@ -68,8 +68,8 @@ describe('WoT Device tests', () => {
         },
       },
     };
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
     await testDevice.requestAction('1234', 'test', 1);
 
     expect(mockConsumedThing.invokeAction).calledOnceWith('test', 1);
@@ -94,8 +94,8 @@ describe('WoT Device tests', () => {
       WoT.InteractionOptions | undefined], Promise < void>>;
 
     mockConsumedThing.subscribeEvent = subscribe;
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
     const eventNotifySpy = spy(testDevice, 'eventNotify');
 
     eventCallback!(1);

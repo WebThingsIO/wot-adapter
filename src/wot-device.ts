@@ -24,11 +24,10 @@ export default class WoTDevice extends Device {
   public constructor(
     adapter: WoTAdapter,
     id: string,
-    td: Record<string, unknown>,
     thing: ConsumedThing
   ) {
     super(adapter, id);
-
+    const td = thing.getThingDescription();
     // TODO: TD validation ?
     this._thing = thing;
     this.setTitle(td.title as string);
