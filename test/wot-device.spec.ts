@@ -56,8 +56,6 @@ describe('WoT Device tests', () => {
 
     expect(value).be.eqls(1);
     expect(mockConsumedThing.readProperty).calledOnceWith('test');
-
-    testDevice.destroy();
   });
 
   it('Should invoke an action', async () => {
@@ -75,7 +73,6 @@ describe('WoT Device tests', () => {
     await testDevice.requestAction('1234', 'test', 1);
 
     expect(mockConsumedThing.invokeAction).calledOnceWith('test', 1);
-    testDevice.destroy();
   });
 
   it('Should fire events', async () => {
@@ -106,6 +103,5 @@ describe('WoT Device tests', () => {
     expect(eventNotifySpy).calledOnceWith(new Event(testDevice, 'test', 1));
 
     expect(mockConsumedThing.subscribeEvent).calledOnceWith('test');
-    testDevice.destroy();
   });
 });
