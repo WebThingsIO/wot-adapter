@@ -133,7 +133,7 @@ Promise<[Record<string, unknown>, boolean]> {
     });
   }
   if (tdsCache.get(href)!.timestamp + 5000 > Date.now()) {
-    return [tdsCache.get(href)!, true];
+    return [tdsCache.get(href)!.td, true];
   }
 
   const res = await fetchWithRetries(href, options);
