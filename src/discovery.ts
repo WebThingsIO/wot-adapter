@@ -156,7 +156,7 @@ Promise<[Record<string, unknown>, boolean]> {
       href,
       td,
       authentication: options?.authentication,
-      digest: '',
+      digest: dig,
       timestamp: Date.now(),
     });
 
