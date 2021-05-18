@@ -8,6 +8,7 @@
 import EventEmitter from 'events';
 import { ServiceType, Browser } from 'dnssd';
 import * as crypto from 'crypto';
+import fetch, { Response, HeadersInit } from 'node-fetch';
 
 type CacheRecord = {
   href: string;
