@@ -58,6 +58,21 @@ describe('WoT Device tests', () => {
     expect(mockConsumedThing.readProperty).calledOnceWith('test');
   });
 
+  it('Should not observe write only properties', async () => {
+    const td = {
+      properties: {
+        test: {
+          writeOnly: true,
+          type: 'number',
+        },
+      },
+    };
+
+    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    // eslint-disable-next-line dot-notation
+    expect(testDevice['openHandles']).to.be.empty;
+  });
+
   it('Should invoke an action', async () => {
     const td = {
       actions: {
