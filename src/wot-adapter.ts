@@ -9,35 +9,14 @@
 import { AddonManagerProxy, Adapter, Database, Device } from 'gateway-addon';
 import manifest from '../manifest.json';
 import * as crypto from 'crypto';
-import { WoTDevice } from './wot-device';
+import WoTDevice from './wot-device';
+import { direct, multicast, DiscoveryOptions } from './discovery';
+import Servient from '@node-wot/core';
 
 const POLL_INTERVAL = 5 * 1000;
 
-type WebThingEndpoint = { href: string; authentication: any };
+type WebThingEndpoint = { href: string; authentication: DiscoveryOptions['authentication'] };
 // TODO: specify exact types for `any` (everywhere where possible)
-
-function getHeaders(authentication: any, includeContentType = false) {
-  const headers: any = {
-    Accept: 'application/json',
-  };
-
-  if (includeContentType) {
-    headers['Content-Type'] = 'application/json';
-  }
-
-  switch (authentication.method) {
-    case 'jwt':
-      headers.Authorization = `Bearer ${authentication.token}`;
-      break;
-    case 'basic':
-    case 'digest':
-    default:
-      // not implemented
-      break;
-  }
-
-  return headers;
-}
 
 export class WoTAdapter extends Adapter {
   private readonly knownUrls: any = {};
@@ -46,64 +25,36 @@ export class WoTAdapter extends Adapter {
 
   public pollInterval: number = POLL_INTERVAL;
 
-  constructor(manager: AddonManagerProxy) {
+  private readonly discovery;
+
+  constructor(manager: AddonManagerProxy,) {
     super(manager, manifest.id, manifest.id);
+
+    this.discovery = multicast();
+    this.discovery.on('thingUp', (data) => {
+      this.addDevice(data.id, data);
+    });
+    this.discovery.on('thingDown', (data: string) => {
+      this.unloadThing(data);
+    });
+
+    this.discovery.on('error', (e) => {
+      console.warn(e);
+    });
+
+    this.discovery.start();
+
   }
 
-  async loadThing(url: { href: string; authentication: any }, retryCounter = 0) {
-    const href = url.href.replace(/\/$/, '');
+  async unload(): Promise<void> {
+    this.discovery.stop();
+    return super.unload();
+  }
 
-    if (!this.knownUrls[href]) {
-      this.knownUrls[href] = {
-        href,
-        authentication: url.authentication,
-        digest: '',
-        timestamp: 0,
-      };
-    }
+  async loadThing(url: string, options: DiscoveryOptions): Promise<void> {
+    const href = url.replace(/\/$/, '');
 
-    if (this.knownUrls[href].timestamp + 5000 > Date.now()) {
-      return;
-    }
-
-    let res;
-    try {
-      res = await fetch(href, { headers: getHeaders(url.authentication) });
-    } catch (e) {
-      // Retry the connection at a 2 second interval up to 5 times.
-      if (retryCounter >= 5) {
-        console.log(`Failed to connect to ${href}: ${e}`);
-      } else {
-        setTimeout(() => this.loadThing(url, retryCounter + 1), 2000);
-      }
-
-      return;
-    }
-
-    const text = await res.text();
-
-    const hash = crypto.createHash('md5');
-    hash.update(text);
-    const dig = hash.digest('hex');
-    let known = false;
-    if (this.knownUrls[href].digest === dig) {
-      known = true;
-    }
-
-    this.knownUrls[href] = {
-      href,
-      authentication: url.authentication,
-      digest: dig,
-      timestamp: Date.now(),
-    };
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      console.log(`Failed to parse description at ${href}: ${e}`);
-      return;
-    }
+    const [data, cached] = await direct(href, options);
 
     let things;
     if (Array.isArray(data)) {
@@ -127,18 +78,18 @@ export class WoTAdapter extends Adapter {
       }
 
       if (id in this.getDevices()) {
-        if (known) {
+        if (cached) {
           continue;
         }
         await this.removeThing(this.getDevices()[id], true);
       }
 
       // TODO: Change arguments after implementing addDevice (if needed)
-      await this.addDevice(id, href, url.authentication, thing, href);
+      await this.addDevice(id, href, options.authentication, thing, href);
     }
   }
 
-  unloadThing(url: string) {
+  unloadThing(url: string): void {
     url = url.replace(/\/$/, '');
 
     for (const id in this.getDevices()) {
@@ -199,25 +150,16 @@ export class WoTAdapter extends Adapter {
   }
 
   // TODO: Which parameters should we retain/add?
-  addDevice(deviceId: string, deviceURL: string, authentication: any, td: any, mdnsUrl: string) {
-    return new Promise(async (resolve, reject) => {
-      if (deviceId in this.getDevices()) {
-        reject(`Device: ${deviceId} already exists.`);
-      } else {
-        // TODO: Uncomment after implementing the device class (change the arguments as well)
-        const device = new WoTDevice(this, deviceId, deviceURL, authentication, td, mdnsUrl);
-        await device.consumeThing();
-        // Promise.all(device.propertyPromises).then(() => {
-        //     this.handleDeviceAdded(device);
-        //
-        //     if (this.savedDevices.has(deviceId)) {
-        //         device.startReading(true);
-        //     }
-        //
-        //     resolve(device);
-        // }).catch((e) => reject(e));
-      }
-    });
+  async addDevice(deviceId: string, td: any): Promise<Device> {
+    if (deviceId in this.getDevices()) {
+      throw new Error(`Device: ${deviceId} already exists.`);
+    } else {
+      // TODO: after instanciate a servient
+      // const thing = await wot.consume(td);
+      const device = new WoTDevice(this, deviceId, thing);
+      this.handleDeviceAdded(device);
+      return device;
+    }
   }
 }
 
@@ -227,22 +169,31 @@ export default async function loadWoTAdapter(manager: AddonManagerProxy): Promis
     const db = new Database(manifest.id);
     await db.open();
     const configuration = await db.loadConfig();
+    let retries: number | undefined;
+    let retryInterval: number | undefined;
 
     if (typeof configuration.pollInterval === 'number') {
       adapter.pollInterval = configuration.pollInterval * 1000;
+    }
+    if (typeof configuration.retires === 'number') {
+      retries = configuration.retries as number;
+    }
+    if (typeof configuration.retryInterval === 'number') {
+      retryInterval = configuration.retryInterval * 1000;
     }
 
     // TODO: validate database entry
     const urls: Array<WebThingEndpoint> = configuration.urls as Array<WebThingEndpoint>;
 
+
     // Load already saved Web Things
     for (const url of urls) {
-      adapter.loadThing(url);
+      await adapter.loadThing(url.href,
+                              { retries,
+                                retryInterval,
+                                authentication: url.authentication });
     }
-
-    // Start discovery
-    // TODO: call dns discovery
   } catch (error) {
-    console.log(error);
+    console.error(error);
   }
 }
