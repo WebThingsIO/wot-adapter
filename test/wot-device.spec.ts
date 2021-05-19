@@ -104,4 +104,38 @@ describe('WoT Device tests', () => {
 
     expect(mockConsumedThing.subscribeEvent).calledOnceWith('test');
   });
+
+  it('Should update property using observable', async () => {
+    const td = {
+      properties: {
+        test: {
+          type: 'number',
+          observable: true,
+        },
+      },
+    };
+    let propertyChangeListener: WoT.WotListener;
+    const subscribe: SinonStub<[name: string,
+      listener: WoT.WotListener,
+      options?: WoT.InteractionOptions | undefined],
+    Promise<void>> = fake((event: string, callback: WoT.WotListener) => {
+      propertyChangeListener = callback;
+    }) as SinonStub<[name: string,
+        listener: WoT.WotListener, options?:
+        WoT.InteractionOptions | undefined], Promise<void>>;
+
+    mockConsumedThing.observeProperty = subscribe;
+
+    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    const notifySpy = sinon.spy(testDevice.findProperty('test')!, 'setCachedValueAndNotify');
+
+    expect(subscribe).calledOnce;
+
+    propertyChangeListener!(1);
+
+    expect(notifySpy).calledOnceWith(1);
+
+    // eslint-disable-next-line dot-notation
+    expect(testDevice.findProperty('test')?.['value']).to.be.eqls(1);
+  });
 });
