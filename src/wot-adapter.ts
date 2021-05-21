@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * WoT Adapter.ts
  *
@@ -10,8 +11,9 @@ import { AddonManagerProxy, Adapter, Database, Device } from 'gateway-addon';
 import manifest from '../manifest.json';
 import * as crypto from 'crypto';
 import WoTDevice from './wot-device';
-import { direct, multicast, DiscoveryOptions } from './discovery';
-import Servient from '@node-wot/core';
+import { direct, multicast, DiscoveryOptions, Discovery } from './discovery';
+import Servient, { ConsumedThing } from '@node-wot/core';
+import { Console } from 'node:console';
 
 const POLL_INTERVAL = 5 * 1000;
 
@@ -19,35 +21,55 @@ type WebThingEndpoint = { href: string; authentication: DiscoveryOptions['authen
 // TODO: specify exact types for `any` (everywhere where possible)
 
 export class WoTAdapter extends Adapter {
-  private readonly knownUrls: any = {};
-
-  private readonly savedDevices: Set<any> = new Set();
 
   public pollInterval: number = POLL_INTERVAL;
 
-  private readonly discovery;
+  private __discovery!: Discovery;
+
+  private __has_init = false;
+
+  private __url2deviceids: Map<string, string> = new Map();
+
+  // private __savedDevices: Map<string, Device>;
+
+
+  public get discovery(): Discovery {
+    return this.__discovery;
+  }
+
+  private stopDiscovery(): void {
+    if (this.__has_init == true) {
+      this.__discovery.stop();
+      this.__has_init = false;
+    }
+  }
+
+  public initDiscovery(): void {
+    if (this.__has_init == false) {
+      this.__discovery = multicast();
+      this.__discovery.on('thingUp', (data) => {
+        this.addDevice(data.id, data);
+      });
+      this.__discovery.on('thingDown', (data: string) => {
+        this.unloadThing(data);
+      });
+
+      this.__discovery.on('error', (e) => {
+        console.warn(e);
+      });
+
+      this.__discovery.start();
+
+      this.__has_init = true;
+    }
+  }
 
   constructor(manager: AddonManagerProxy,) {
     super(manager, manifest.id, manifest.id);
-
-    this.discovery = multicast();
-    this.discovery.on('thingUp', (data) => {
-      this.addDevice(data.id, data);
-    });
-    this.discovery.on('thingDown', (data: string) => {
-      this.unloadThing(data);
-    });
-
-    this.discovery.on('error', (e) => {
-      console.warn(e);
-    });
-
-    this.discovery.start();
-
   }
 
   async unload(): Promise<void> {
-    this.discovery.stop();
+    this.stopDiscovery();
     return super.unload();
   }
 
@@ -81,39 +103,41 @@ export class WoTAdapter extends Adapter {
         if (cached) {
           continue;
         }
-        await this.removeThing(this.getDevices()[id], true);
+        await this.removeThing(this.getDevices()[id]);
       }
 
       // TODO: Change arguments after implementing addDevice (if needed)
-      await this.addDevice(id, href, options.authentication, thing, href);
+      await this.addDevice(id, href, thing);
     }
   }
 
   unloadThing(url: string): void {
+    const FN_NAME = 'WoTAdapter::unloadThing()';
     url = url.replace(/\/$/, '');
 
-    for (const id in this.getDevices()) {
-      const device = this.getDevices()[id];
-      // TODO: Uncomment after implementing the device class
-      // if (device.mdnsUrl === url) {
-      //     device.closeWebSocket();
-      //     this.removeThing(device, true);
-      // }
+    let deviceId = '';
+    if (this.__url2deviceids.has(url) == true) {
+      deviceId = <string> this.__url2deviceids.get(url);
     }
 
-    if (this.knownUrls[url]) {
-      delete this.knownUrls[url];
+
+    if (deviceId.length == 0) {
+      logMsg(FN_NAME, `URL ${url} not found ! `);
+      return;
     }
+
+
+    const d: Device = this.getDevices()[deviceId];
+
+    this.removeThing(d);
+    this.__url2deviceids.delete(url);
   }
 
   // TODO: The method signature does not correspond to the one from the parent class
-  //  (there is no `internal` parameter), that's why I've added the default value as a workaround for now
-  removeThing(device: Device, internal = false) {
+  //  (there is no `internal` parameter), that's why I've added the default value
+  // as a workaround for now
+  removeThing(device: Device): Promise<Device> {
     return this.removeDeviceFromConfig(device).then(() => {
-      if (!internal) {
-        this.savedDevices.delete(device.getId());
-      }
-
       if (this.getDevices.hasOwnProperty(device.getId())) {
         this.handleDeviceRemoved(device);
         // TODO: Uncomment after implementing the device class
@@ -125,15 +149,15 @@ export class WoTAdapter extends Adapter {
     });
   }
 
-  async removeDeviceFromConfig(device: Device) {
+  async removeDeviceFromConfig(device: Device): Promise<void> {
     try {
       const db = new Database(this.getPackageName());
       await db.open();
-      const config: any = await db.loadConfig();
+      const db_config: Record<string, unknown> = await db.loadConfig();
 
-      // If the device's URL is saved in the config, remove it.
-      // TODO: Uncomment the following code after implementing the device class
-      // const urlIndex = config.urls.indexOf(device.url);
+      // inverse
+
+      // const urlIndex = db_config.urls.indexOf(device.url);
       // if (urlIndex >= 0) {
       //     config.urls.splice(urlIndex, 1);
       //     await db.saveConfig(config);
@@ -150,19 +174,43 @@ export class WoTAdapter extends Adapter {
   }
 
   // TODO: Which parameters should we retain/add?
-  async addDevice(deviceId: string, td: any): Promise<Device> {
+  async addDevice(deviceId: string, url: string, thing: ConsumedThing): Promise<Device> {
     if (deviceId in this.getDevices()) {
       throw new Error(`Device: ${deviceId} already exists.`);
     } else {
       // TODO: after instanciate a servient
-      // const thing = await wot.consume(td);
+      // const thing = await WoT.consume(td);
       const device = new WoTDevice(this, deviceId, thing);
       this.handleDeviceAdded(device);
+      this.__url2deviceids.set(url, deviceId);
       return device;
     }
   }
 }
 
+function logMsg(caller: string, msg: string): void {
+  const d: Date = new Date();
+  let s: string = d.getFullYear().toString();
+  s += '-';
+  s += d.getMonth().toString().padStart(2, '0');
+  s += '-';
+  s += d.getDate().toString().padStart(2, '0');
+  s += ' ';
+  s += d.getHours().toString().padStart(2, '0');
+  s += ':';
+  s += d.getMinutes().toString().padStart(2, '0');
+  s += ':';
+  s += d.getSeconds().toString().padStart(2, '0');
+  s += '.';
+  s += d.getMilliseconds().toString().padStart(2, '0');
+
+  s += ' ';
+  s += caller;
+  s += ' : ';
+  s += msg;
+
+  console.log(s);
+}
 export default async function loadWoTAdapter(manager: AddonManagerProxy): Promise<void> {
   try {
     const adapter = new WoTAdapter(manager);
