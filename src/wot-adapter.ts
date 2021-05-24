@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * WoT Adapter.ts
  *
@@ -9,11 +8,10 @@
 
 import { AddonManagerProxy, Adapter, Database, Device } from 'gateway-addon';
 import manifest from '../manifest.json';
-import * as crypto from 'crypto';
 import WoTDevice from './wot-device';
 import { direct, multicast, DiscoveryOptions, Discovery } from './discovery';
-import Servient, { ConsumedThing } from '@node-wot/core';
-import { Console } from 'node:console';
+import Servient from '@node-wot/core';
+
 
 const POLL_INTERVAL = 5 * 1000;
 
@@ -24,44 +22,31 @@ export class WoTAdapter extends Adapter {
 
   public pollInterval: number = POLL_INTERVAL;
 
-  private __discovery!: Discovery;
+  private discovery?: Discovery;
 
-  private __has_init = false;
+  private srv?: Servient;
 
-  private __url2deviceids: Map<string, string> = new Map();
-
-  // private __savedDevices: Map<string, Device>;
+  private wot?: WoT.WoT;
 
 
-  public get discovery(): Discovery {
-    return this.__discovery;
-  }
+  async initDiscovery(): Promise<void> {
+    this.discovery = multicast();
+    this.discovery.on('foundThing', (data: {
+      url: string; td: Record<string, unknown>;}) => {
+      this.addDevice(data.url, data.td);
+    });
+    this.discovery.on('lostThing', (url: string) => {
+      this.unloadThing(url);
+    });
 
-  private stopDiscovery(): void {
-    if (this.__has_init == true) {
-      this.__discovery.stop();
-      this.__has_init = false;
-    }
-  }
+    this.discovery.on('error', (e) => {
+      console.warn(e);
+    });
 
-  public initDiscovery(): void {
-    if (this.__has_init == false) {
-      this.__discovery = multicast();
-      this.__discovery.on('thingUp', (data) => {
-        this.addDevice(data.id, data);
-      });
-      this.__discovery.on('thingDown', (data: string) => {
-        this.unloadThing(data);
-      });
+    this.discovery.start();
 
-      this.__discovery.on('error', (e) => {
-        console.warn(e);
-      });
-
-      this.__discovery.start();
-
-      this.__has_init = true;
-    }
+    this.srv = new Servient();
+    this.wot = await this.srv.start();
   }
 
   constructor(manager: AddonManagerProxy,) {
@@ -69,7 +54,9 @@ export class WoTAdapter extends Adapter {
   }
 
   async unload(): Promise<void> {
-    this.stopDiscovery();
+    this.discovery && this.discovery.stop();
+    this.srv && this.srv.shutdown();
+
     return super.unload();
   }
 
@@ -107,22 +94,17 @@ export class WoTAdapter extends Adapter {
       }
 
       // TODO: Change arguments after implementing addDevice (if needed)
-      await this.addDevice(id, href, thing);
+      await this.addDevice(href, thing);
     }
   }
 
   unloadThing(url: string): void {
-    const FN_NAME = 'WoTAdapter::unloadThing()';
     url = url.replace(/\/$/, '');
 
-    let deviceId = '';
-    if (this.__url2deviceids.has(url) == true) {
-      deviceId = <string> this.__url2deviceids.get(url);
-    }
-
+    const deviceId = url;
 
     if (deviceId.length == 0) {
-      logMsg(FN_NAME, `URL ${url} not found ! `);
+      console.warn('WoTAdapter::unloadThing()', `URL ${url} not found ! `);
       return;
     }
 
@@ -130,7 +112,6 @@ export class WoTAdapter extends Adapter {
     const d: Device = this.getDevices()[deviceId];
 
     this.removeThing(d);
-    this.__url2deviceids.delete(url);
   }
 
   // TODO: The method signature does not correspond to the one from the parent class
@@ -153,10 +134,6 @@ export class WoTAdapter extends Adapter {
     try {
       const db = new Database(this.getPackageName());
       await db.open();
-      const db_config: Record<string, unknown> = await db.loadConfig();
-
-      // inverse
-
       // const urlIndex = db_config.urls.indexOf(device.url);
       // if (urlIndex >= 0) {
       //     config.urls.splice(urlIndex, 1);
@@ -174,43 +151,26 @@ export class WoTAdapter extends Adapter {
   }
 
   // TODO: Which parameters should we retain/add?
-  async addDevice(deviceId: string, url: string, thing: ConsumedThing): Promise<Device> {
-    if (deviceId in this.getDevices()) {
-      throw new Error(`Device: ${deviceId} already exists.`);
+  async addDevice(url: string, td: Record<string, unknown>): Promise<Device> {
+    if(!this.wot) {
+      throw new Error('Unitilized device; call initDiscovery before adding a device');
+    }
+
+    if (this.getDevice(url)) {
+      throw new Error(`Device: ${url} already exists.`);
     } else {
       // TODO: after instanciate a servient
       // const thing = await WoT.consume(td);
-      const device = new WoTDevice(this, deviceId, thing);
+
+      const thing = await this.wot.consume(td);
+      const device = new WoTDevice(this, url, thing);
       this.handleDeviceAdded(device);
-      this.__url2deviceids.set(url, deviceId);
+
       return device;
     }
   }
 }
 
-function logMsg(caller: string, msg: string): void {
-  const d: Date = new Date();
-  let s: string = d.getFullYear().toString();
-  s += '-';
-  s += d.getMonth().toString().padStart(2, '0');
-  s += '-';
-  s += d.getDate().toString().padStart(2, '0');
-  s += ' ';
-  s += d.getHours().toString().padStart(2, '0');
-  s += ':';
-  s += d.getMinutes().toString().padStart(2, '0');
-  s += ':';
-  s += d.getSeconds().toString().padStart(2, '0');
-  s += '.';
-  s += d.getMilliseconds().toString().padStart(2, '0');
-
-  s += ' ';
-  s += caller;
-  s += ' : ';
-  s += msg;
-
-  console.log(s);
-}
 export default async function loadWoTAdapter(manager: AddonManagerProxy): Promise<void> {
   try {
     const adapter = new WoTAdapter(manager);
@@ -232,8 +192,7 @@ export default async function loadWoTAdapter(manager: AddonManagerProxy): Promis
 
     // TODO: validate database entry
     const urls: Array<WebThingEndpoint> = configuration.urls as Array<WebThingEndpoint>;
-
-
+    await adapter.initDiscovery();
     // Load already saved Web Things
     for (const url of urls) {
       await adapter.loadThing(url.href,
