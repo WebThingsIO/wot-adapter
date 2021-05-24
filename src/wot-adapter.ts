@@ -15,6 +15,7 @@ import { direct, multicast, DiscoveryOptions, Discovery } from './discovery';
 import Servient, { ConsumedThing } from '@node-wot/core';
 import { Console } from 'node:console';
 
+
 const POLL_INTERVAL = 5 * 1000;
 
 type WebThingEndpoint = { href: string; authentication: DiscoveryOptions['authentication'] };
@@ -32,6 +33,12 @@ export class WoTAdapter extends Adapter {
 
   // private __savedDevices: Map<string, Device>;
 
+  // private __savedDevices: Map<string, Device>;
+
+  private __srv!: Servient;
+
+  private __wot!: WoT.WoT;
+
 
   public get discovery(): Discovery {
     return this.__discovery;
@@ -44,14 +51,15 @@ export class WoTAdapter extends Adapter {
     }
   }
 
-  public initDiscovery(): void {
+  public async initDiscovery(): Promise<void> {
     if (this.__has_init == false) {
       this.__discovery = multicast();
-      this.__discovery.on('thingUp', (data) => {
-        this.addDevice(data.id, data);
+      this.__discovery.on('foundThing', (data: {
+        url: string; td: Record<string, unknown>;}) => {
+        this.addDevice(data.url, data.td);
       });
-      this.__discovery.on('thingDown', (data: string) => {
-        this.unloadThing(data);
+      this.__discovery.on('lostThing', (url: string) => {
+        this.unloadThing(url);
       });
 
       this.__discovery.on('error', (e) => {
@@ -60,6 +68,8 @@ export class WoTAdapter extends Adapter {
 
       this.__discovery.start();
 
+      this.__srv = new Servient();
+      this.__wot = await this.__srv.start();
       this.__has_init = true;
     }
   }
@@ -107,7 +117,7 @@ export class WoTAdapter extends Adapter {
       }
 
       // TODO: Change arguments after implementing addDevice (if needed)
-      await this.addDevice(id, href, thing);
+      await this.addDevice(href, thing);
     }
   }
 
@@ -174,15 +184,18 @@ export class WoTAdapter extends Adapter {
   }
 
   // TODO: Which parameters should we retain/add?
-  async addDevice(deviceId: string, url: string, thing: ConsumedThing): Promise<Device> {
-    if (deviceId in this.getDevices()) {
-      throw new Error(`Device: ${deviceId} already exists.`);
+  async addDevice(url: string, td: Record<string, unknown>): Promise<Device> {
+    if (this.__url2deviceids.has(url)) {
+      throw new Error(`Device: ${url} already exists.`);
     } else {
       // TODO: after instanciate a servient
       // const thing = await WoT.consume(td);
-      const device = new WoTDevice(this, deviceId, thing);
+
+      const thing = await this.__wot.consume(td);
+
+      const device = new WoTDevice(this, url, thing);
       this.handleDeviceAdded(device);
-      this.__url2deviceids.set(url, deviceId);
+      this.__url2deviceids.set(url, device.getId());
       return device;
     }
   }
