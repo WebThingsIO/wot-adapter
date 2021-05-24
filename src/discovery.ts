@@ -30,6 +30,11 @@ export type DiscoveryOptions = {
 };
 
 export interface Discovery extends EventEmitter {
+  on(event: 'foundThing', listener: (data: {
+    url: string; td: Record<string, unknown>;}) => void): this;
+  on(event: 'lostThing', listener: (url: string) => void): this;
+  on(event: 'error', listener: (error: Error) => void): this;
+
   start(): void;
   stop(): void;
 }
