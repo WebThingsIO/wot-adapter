@@ -29,11 +29,8 @@ export class WoTAdapter extends Adapter {
 
   private __has_init = false;
 
-  private __url2deviceids: Map<string, string> = new Map();
+  private __ref_count = 0;
 
-  // private __savedDevices: Map<string, Device>;
-
-  // private __savedDevices: Map<string, Device>;
 
   private __srv!: Servient;
 
@@ -46,8 +43,11 @@ export class WoTAdapter extends Adapter {
 
   private stopDiscovery(): void {
     if (this.__has_init == true) {
-      this.__discovery.stop();
-      this.__has_init = false;
+      --this.__ref_count;
+      if (this.__ref_count == 0) {
+        this.__discovery.stop();
+        this.__has_init = false;
+      }
     }
   }
 
@@ -72,6 +72,7 @@ export class WoTAdapter extends Adapter {
       this.__wot = await this.__srv.start();
       this.__has_init = true;
     }
+    ++this.__ref_count;
   }
 
   constructor(manager: AddonManagerProxy,) {
@@ -125,11 +126,7 @@ export class WoTAdapter extends Adapter {
     const FN_NAME = 'WoTAdapter::unloadThing()';
     url = url.replace(/\/$/, '');
 
-    let deviceId = '';
-    if (this.__url2deviceids.has(url) == true) {
-      deviceId = <string> this.__url2deviceids.get(url);
-    }
-
+    const deviceId = url;
 
     if (deviceId.length == 0) {
       logMsg(FN_NAME, `URL ${url} not found ! `);
@@ -140,7 +137,6 @@ export class WoTAdapter extends Adapter {
     const d: Device = this.getDevices()[deviceId];
 
     this.removeThing(d);
-    this.__url2deviceids.delete(url);
   }
 
   // TODO: The method signature does not correspond to the one from the parent class
@@ -185,17 +181,16 @@ export class WoTAdapter extends Adapter {
 
   // TODO: Which parameters should we retain/add?
   async addDevice(url: string, td: Record<string, unknown>): Promise<Device> {
-    if (this.__url2deviceids.has(url)) {
+    if (this.getDevice(url)) {
       throw new Error(`Device: ${url} already exists.`);
     } else {
       // TODO: after instanciate a servient
       // const thing = await WoT.consume(td);
 
       const thing = await this.__wot.consume(td);
-
       const device = new WoTDevice(this, url, thing);
       this.handleDeviceAdded(device);
-      this.__url2deviceids.set(url, device.getId());
+
       return device;
     }
   }
