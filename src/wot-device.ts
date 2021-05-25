@@ -92,6 +92,11 @@ export default class WoTDevice extends Device {
   private observeProperty(td: Record<string, unknown>, property: Property<any>): void {
     const properties = td.properties as Record<string, schema.Property>;
     const schProp: schema.Property = properties[property.getName()];
+    // cannot observe write only
+    if (schProp.writeOnly === true) {
+      return;
+    }
+    // see if it can be observerd
     if(schProp.observable) {
       this.thing.observeProperty(property.getName(), (value) => {
         property.setCachedValueAndNotify(value);
