@@ -10,6 +10,7 @@ const expect = chai.expect;
 
 describe('Discovery api tests', () => {
   let servient: Servient;
+
   before(() => {
     // disable servient logs
     const logger = (...args: any[]): void => {
@@ -21,9 +22,11 @@ describe('Discovery api tests', () => {
     console.info = logger;
     console.debug = logger;
   });
+
   beforeEach(() => {
     servient = new Servient();
   });
+
   it('fetch device directly', async () => {
     servient.addServer(new HttpServer());
     const WoT = await servient.start();
@@ -35,6 +38,7 @@ describe('Discovery api tests', () => {
     // Make sure data is NOT from cache
     expect(fetched[1]).to.be.false;
   });
+
   it('invalid url should throw an error', async () => {
     servient.addServer(new HttpServer());
     const WoT = await servient.start();
@@ -42,6 +46,7 @@ describe('Discovery api tests', () => {
     await thing.expose();
     await expect(direct('http://127.0.0.1:8080/invalidurl')).to.be.rejectedWith(Error);
   });
+
   it('fetch device from cache (time-dependent)', async () => {
     servient.addServer(new HttpServer());
     const WoT = await servient.start();
@@ -54,6 +59,7 @@ describe('Discovery api tests', () => {
     // Make sure data is from cache
     expect(fetched[1]).to.be.true;
   });
+
   it('fetch device from cache (data-dependent)', async () => {
     servient.addServer(new HttpServer());
     const WoT = await servient.start();
@@ -68,6 +74,7 @@ describe('Discovery api tests', () => {
     // Make sure data is from cache
     expect(fetched[1]).to.be.true;
   }).timeout(7000);
+
   describe('Multicast', () => {
     it('multicast thing discovery - foundThing', (done) => {
       (async () => {
@@ -103,6 +110,7 @@ describe('Discovery api tests', () => {
         ad.start();
       })();
     }).timeout(6000);
+
     it('multicast thing discovery - lostThing', (done) => {
       (async () => {
         servient.addServer(new HttpServer());
