@@ -97,6 +97,7 @@ describe('Discovery api tests', () => {
         // Since `expect` is inside callback, we need `done` in the end
         done();
       });
+      discovery.on('error', (e) => done(e));
       discovery.start();
       // Create and start the service to advertise the Thing
       const ad = new Advertisement(
@@ -106,7 +107,7 @@ describe('Discovery api tests', () => {
       );
       ad.start();
     })();
-  }).timeout(5000);
+  }).timeout(6000);
   it('multicast thing discovery - lostThing', (done) => {
     (async () => {
       // Start the WoT servient
@@ -142,9 +143,11 @@ describe('Discovery api tests', () => {
         // Since `expect` is inside callback, we need `done` in the end
         done();
       });
+
+      discovery.on('error', (e) => done(e));
       discovery.start();
       // Start the service to advertise the Thing
       ad.start();
     })();
-  }).timeout(5000);
+  }).timeout(6000);
 });
