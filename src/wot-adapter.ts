@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /**
  * WoT Adapter.ts
  *
@@ -9,13 +10,14 @@
 import { AddonManagerProxy, Adapter, Database, Device } from 'gateway-addon';
 import manifest from '../manifest.json';
 import WoTDevice from './wot-device';
-import { direct, multicast, DiscoveryOptions, Discovery } from './discovery';
+import { direct, multicast, DiscoveryOptions, Discovery, AuthenticationData } from './discovery';
 import Servient from '@node-wot/core';
+import { WoTAdapterConfig } from './wot-adapter-config';
+import { WoTAdapterConfigData } from './wot-adapter-config-data';
 
 
 const POLL_INTERVAL = 5 * 1000;
 
-type WebThingEndpoint = { href: string; authentication: DiscoveryOptions['authentication'] };
 // TODO: specify exact types for `any` (everywhere where possible)
 
 export class WoTAdapter extends Adapter {
@@ -39,12 +41,6 @@ export class WoTAdapter extends Adapter {
       this.unloadThing(url);
     });
 
-    this.discovery.on('error', (e) => {
-      console.warn(e);
-    });
-
-    this.discovery.start();
-
     this.srv = new Servient();
     this.wot = await this.srv.start();
   }
@@ -60,10 +56,25 @@ export class WoTAdapter extends Adapter {
     return super.unload();
   }
 
-  async loadThing(url: string, options: DiscoveryOptions): Promise<void> {
+  async loadThing(url: string, retries?: number, retryInterval?: number,
+                  authdata?: AuthenticationData): Promise<void> {
     const href = url.replace(/\/$/, '');
 
-    const [data, cached] = await direct(href, options);
+    let v: [Record<string, unknown>, boolean];
+
+    if (authdata) {
+      const dopts: DiscoveryOptions = {
+        retries,
+        retryInterval,
+        authentication: authdata,
+      };
+
+      v = await direct(href, dopts);
+    } else {
+      v = await direct(href);
+    }
+
+    const [data, cached] = v;
 
     let things;
     if (Array.isArray(data)) {
@@ -93,8 +104,7 @@ export class WoTAdapter extends Adapter {
         await this.removeThing(this.getDevices()[id]);
       }
 
-      // TODO: Change arguments after implementing addDevice (if needed)
-      await this.addDevice(href, thing);
+      await this.addDevice(href, thing, authdata);
     }
   }
 
@@ -132,73 +142,75 @@ export class WoTAdapter extends Adapter {
 
   async removeDeviceFromConfig(device: Device): Promise<void> {
     try {
-      const db = new Database(this.getPackageName());
-      await db.open();
-      // const urlIndex = db_config.urls.indexOf(device.url);
-      // if (urlIndex >= 0) {
-      //     config.urls.splice(urlIndex, 1);
-      //     await db.saveConfig(config);
-      //
-      //     // Remove from list of known URLs as well.
-      //     const adjustedUrl = device.url.replace(/\/$/, '');
-      //     if (this.knownUrls.hasOwnProperty(adjustedUrl)) {
-      //         delete this.knownUrls[adjustedUrl];
-      //     }
-      // }
+      const wcd: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
+      await wcd.load();
+      wcd.remove(device.getId());
+      await wcd.save();
     } catch (err) {
       console.error(`Failed to remove device ${device.getId()} from config: ${err}`);
     }
   }
 
   // TODO: Which parameters should we retain/add?
-  async addDevice(url: string, td: Record<string, unknown>): Promise<Device> {
-    if(!this.wot) {
+  async addDevice(url: string, td: Record<string, unknown>, authdata?: AuthenticationData):
+  Promise<Device> {
+    if (!this.wot) {
       throw new Error('Unitilized device; call initDiscovery before adding a device');
     }
-
     if (this.getDevice(url)) {
       throw new Error(`Device: ${url} already exists.`);
     } else {
-      // TODO: after instanciate a servient
-      // const thing = await WoT.consume(td);
-
       const thing = await this.wot.consume(td);
       const device = new WoTDevice(this, url, thing);
       this.handleDeviceAdded(device);
+
+      // adds to current config
+
+      const wcd: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
+      await wcd.load();
+
+      wcd.add(new WoTAdapterConfigData(url, authdata));
+      await wcd.save();
 
       return device;
     }
   }
 }
 
+
 export default async function loadWoTAdapter(manager: AddonManagerProxy): Promise<void> {
   try {
     const adapter = new WoTAdapter(manager);
-    const db = new Database(manifest.id);
-    await db.open();
-    const configuration = await db.loadConfig();
-    let retries: number | undefined;
-    let retryInterval: number | undefined;
 
-    if (typeof configuration.pollInterval === 'number') {
-      adapter.pollInterval = configuration.pollInterval * 1000;
-    }
-    if (typeof configuration.retires === 'number') {
-      retries = configuration.retries as number;
-    }
-    if (typeof configuration.retryInterval === 'number') {
-      retryInterval = configuration.retryInterval * 1000;
-    }
+    const wcd: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
+    await wcd.load();
 
-    // TODO: validate database entry
-    const urls: Array<WebThingEndpoint> = configuration.urls as Array<WebThingEndpoint>;
+    const retries = wcd.retries;
+    const retryInterval = wcd.retryInterval;
+
     await adapter.initDiscovery();
-    // Load already saved Web Things
-    for (const url of urls) {
-      await adapter.loadThing(url.href,
-                              { retries,
-                                retryInterval,
-                                authentication: url.authentication });
+
+    for(const s in wcd.urlList) {
+      const wt = wcd.configData(s);
+      if (wt) {
+        let dopts: DiscoveryOptions;
+
+        if (wt.authData) {
+          dopts = {
+            retries,
+            retryInterval,
+            authentication: wt.authData,
+          };
+        }
+
+
+        await adapter.loadThing(
+          s,
+          retries,
+          retryInterval,
+          wt.authData
+        );
+      }
     }
   } catch (error) {
     console.error(error);

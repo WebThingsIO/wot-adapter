@@ -19,7 +19,7 @@ type CacheRecord = {
 // TODO: define a ThingDescription type
 const tdsCache: Map<string, CacheRecord> = new Map();
 
-type AuthenticationData = {
+export type AuthenticationData = {
   schema: 'nosec'|'jwt' | 'basic' | 'digest';
   token?: string;
 };
