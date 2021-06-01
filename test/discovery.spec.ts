@@ -9,6 +9,17 @@ chai.use(chaiAsPromised);
 const expect = chai.expect;
 
 describe('Discovery api tests', () => {
+  before(() => {
+    // disable servient logs
+    const logger = (...args: any[]): void => {
+      if (!args[0] || !args[0]?.startsWith('[')) {
+        console.log(args);
+      }
+    };
+    console.warn = logger;
+    console.info = logger;
+    console.debug = logger;
+  });
   it('fetch device directly', async () => {
     const servient = new Servient();
     servient.addServer(new HttpServer());
@@ -137,4 +148,3 @@ describe('Discovery api tests', () => {
     })();
   }).timeout(5000);
 });
-
