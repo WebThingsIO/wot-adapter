@@ -8,10 +8,11 @@
 import EventEmitter from 'events';
 import { ServiceType, Browser } from 'dnssd';
 import * as crypto from 'crypto';
+import { AuthenticationDataType } from './wot-adapter-config';
 
 type CacheRecord = {
   href: string;
-  authentication?: AuthenticationData;
+  authentication?: AuthenticationDataType;
   digest: string;
   td: Record<string, unknown>;
   timestamp: number;
@@ -19,14 +20,10 @@ type CacheRecord = {
 // TODO: define a ThingDescription type
 const tdsCache: Map<string, CacheRecord> = new Map();
 
-export type AuthenticationData = {
-  schema: 'nosec'|'jwt' | 'basic' | 'digest';
-  token?: string;
-};
 export type DiscoveryOptions = {
   retries?: number;
   retryInterval?: number;
-  authentication: AuthenticationData;
+  authentication: AuthenticationDataType;
 };
 
 export interface Discovery extends EventEmitter {
@@ -39,7 +36,8 @@ export interface Discovery extends EventEmitter {
   stop(): void;
 }
 
-function getHeaders(authentication: AuthenticationData, includeContentType = false): HeadersInit {
+function getHeaders(authentication: AuthenticationDataType,
+                    includeContentType = false): HeadersInit {
   const headers: HeadersInit = {
     Accept: 'application/json',
   };

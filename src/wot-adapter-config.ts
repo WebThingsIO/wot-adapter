@@ -1,82 +1,115 @@
 import { Database } from 'gateway-addon';
-import { DiscoveryOptions } from './discovery';
 
-import { WoTAdapterConfigData } from './wot-adapter-config-data';
+export type AuthenticationDataType = NoSecurityData | JSONWebTokenSecuiryData |
+BasicSecurityData | DigestSecurityData;
 
+interface AuthenticationData {
+  schema: string;
+};
+
+export interface NoSecurityData extends AuthenticationData{
+  schema: 'nosec';
+}
+export interface JSONWebTokenSecuiryData extends AuthenticationData{
+  schema: 'jwt';
+  token: string;
+}
+export interface BasicSecurityData extends AuthenticationData{
+  schema: 'basic';
+  user: string;
+  password: string;
+}
+export interface DigestSecurityData extends AuthenticationData{
+  schema: 'digest';
+  digest: string;
+}
+
+export type WebThingEndpoint = {
+  url: string;
+  authentication?: AuthenticationDataType;
+};
+/**
+ * {
+ *  "retries" : 1,
+ *  "pollInterval": 3,
+ *  "retryInterval": 10,
+ *  "endpoints": {
+ *    "http://test.endpoint.it/thing1": {
+ *      "authentication": {
+ *         "scheme": "nosec"
+ *      }
+ *    }
+ *  }
+ * }
+ */
 export class WoTAdapterConfig {
-  private __db: Database;
+  private db: Database;
 
-  private __device_data: Map<string, WoTAdapterConfigData> = new Map();
+  private stored_endpoints: Map<string, WebThingEndpoint['authentication']> = new Map();
 
-  private __pollInterval = 1;
+  private _pollInterval = 1;
 
-  private __retries = 3;
+  private _retries = 3;
 
-  private __retryInterval = 10;
+  private _retryInterval = 10;
 
   public get pollInterval(): number {
-    return this.__pollInterval;
+    return this._pollInterval;
   }
 
   public get retries(): number {
-    return this.__retries;
+    return this._retries;
   }
 
   public get retryInterval(): number {
-    return this.__retryInterval;
+    return this._retryInterval;
   }
 
 
   public constructor(name: string, path?: string) {
-    this.__db = new Database(name, path);
+    this.db = new Database(name, path);
   }
 
   public async load(): Promise<void> {
-    // open db
-    await this.__db.open();
-    const db_config: Record<string, unknown> = await this.__db.loadConfig();
+    await this.db.open();
+    const db_config: Record<string, unknown> = await this.db.loadConfig();
+    const endpoints = db_config.endpoints as { [url: string]: WebThingEndpoint['authentication'] };
 
-    for(const k in db_config) {
+    for (const k in endpoints) {
       const url = <string> k;
-      this.__device_data.set(url, new WoTAdapterConfigData(
-        url,
-        <DiscoveryOptions['authentication']> db_config[url]
-      )
-      );
+      // TODO: check if scheme is among the supported schemes
+      const endpoint = endpoints[url];
+      this.stored_endpoints.set(url, endpoint);
     }
-
-    // loads data into
   }
 
   public async save(): Promise<void> {
-    await this.__db.open();
+    await this.db.open();
     const newObject: Record<string, unknown> = {};
 
-    for (const [key, value] of this.__device_data) {
+    for (const [key, value] of this.stored_endpoints) {
       newObject[key] = value;
     }
 
-    // console.log(JSON.stringify(newObject));
-
-    await this.__db.saveConfig(newObject);
+    await this.db.saveConfig(newObject);
   }
 
-  public add(d: WoTAdapterConfigData): void {
-    this.__device_data.set(d.url, d);
+  public add(d: WebThingEndpoint): void {
+    this.stored_endpoints.set(d.url, d.authentication);
     this.save();
   }
 
   public remove(url: string): void {
-    this.__device_data.delete(url);
+    this.stored_endpoints.delete(url);
     this.save();
   }
 
   public urlList(): IterableIterator<string> {
-    return this.__device_data.keys();
+    return this.stored_endpoints.keys();
   }
 
-  public configData(url: string): WoTAdapterConfigData | undefined {
-    return this.__device_data.get(url);
+  public configData(url: string): AuthenticationDataType | undefined {
+    return this.stored_endpoints.get(url);
   }
 
 

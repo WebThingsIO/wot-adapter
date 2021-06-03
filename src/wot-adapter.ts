@@ -10,10 +10,9 @@
 import { AddonManagerProxy, Adapter, Database, Device } from 'gateway-addon';
 import manifest from '../manifest.json';
 import WoTDevice from './wot-device';
-import { direct, multicast, DiscoveryOptions, Discovery, AuthenticationData } from './discovery';
+import { direct, multicast, DiscoveryOptions, Discovery } from './discovery';
 import Servient from '@node-wot/core';
-import { WoTAdapterConfig } from './wot-adapter-config';
-import { WoTAdapterConfigData } from './wot-adapter-config-data';
+import { WoTAdapterConfig, AuthenticationDataType } from './wot-adapter-config';
 
 
 const POLL_INTERVAL = 5 * 1000;
@@ -57,7 +56,7 @@ export class WoTAdapter extends Adapter {
   }
 
   async loadThing(url: string, retries?: number, retryInterval?: number,
-                  authdata?: AuthenticationData): Promise<void> {
+                  authdata?: AuthenticationDataType): Promise<void> {
     const href = url.replace(/\/$/, '');
 
     let v: [Record<string, unknown>, boolean];
@@ -152,7 +151,7 @@ export class WoTAdapter extends Adapter {
   }
 
   // TODO: Which parameters should we retain/add?
-  async addDevice(url: string, td: Record<string, unknown>, authdata?: AuthenticationData):
+  async addDevice(url: string, td: Record<string, unknown>, authdata?: AuthenticationDataType):
   Promise<Device> {
     if (!this.wot) {
       throw new Error('Unitilized device; call initDiscovery before adding a device');
@@ -169,7 +168,7 @@ export class WoTAdapter extends Adapter {
       const wcd: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
       await wcd.load();
 
-      wcd.add(new WoTAdapterConfigData(url, authdata));
+      wcd.add({ url, authentication: authdata });
       await wcd.save();
 
       return device;
@@ -182,35 +181,22 @@ export default async function loadWoTAdapter(manager: AddonManagerProxy): Promis
   try {
     const adapter = new WoTAdapter(manager);
 
-    const wcd: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
-    await wcd.load();
+    const configuration: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
+    await configuration.load();
 
-    const retries = wcd.retries;
-    const retryInterval = wcd.retryInterval;
+    const retries = configuration.retries;
+    const retryInterval = configuration.retryInterval;
 
     await adapter.initDiscovery();
 
-    for(const s in wcd.urlList) {
-      const wt = wcd.configData(s);
-      if (wt) {
-        let dopts: DiscoveryOptions;
-
-        if (wt.authData) {
-          dopts = {
-            retries,
-            retryInterval,
-            authentication: wt.authData,
-          };
-        }
-
-
-        await adapter.loadThing(
-          s,
-          retries,
-          retryInterval,
-          wt.authData
-        );
-      }
+    for(const s in configuration.urlList) {
+      const authentication = configuration.configData(s);
+      await adapter.loadThing(
+        s,
+        retries,
+        retryInterval,
+        authentication
+      );
     }
   } catch (error) {
     console.error(error);
