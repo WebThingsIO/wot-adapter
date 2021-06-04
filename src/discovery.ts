@@ -8,6 +8,7 @@
 import EventEmitter from 'events';
 import { ServiceType, Browser } from 'dnssd';
 import * as crypto from 'crypto';
+import fetch, { Response, HeadersInit } from 'node-fetch';
 
 type CacheRecord = {
   href: string;
@@ -30,6 +31,11 @@ export type DiscoveryOptions = {
 };
 
 export interface Discovery extends EventEmitter {
+  on(event: 'foundThing', listener: (data: {
+    url: string; td: Record<string, unknown>;}) => void): this;
+  on(event: 'lostThing', listener: (url: string) => void): this;
+  on(event: 'error', listener: (error: Error) => void): this;
+
   start(): void;
   stop(): void;
 }
@@ -132,7 +138,7 @@ Promise<[Record<string, unknown>, boolean]> {
     });
   }
   if (tdsCache.get(href)!.timestamp + 5000 > Date.now()) {
-    return [tdsCache.get(href)!, true];
+    return [tdsCache.get(href)!.td, true];
   }
 
   const res = await fetchWithRetries(href, options);
@@ -155,7 +161,7 @@ Promise<[Record<string, unknown>, boolean]> {
       href,
       td,
       authentication: options?.authentication,
-      digest: '',
+      digest: dig,
       timestamp: Date.now(),
     });
 
