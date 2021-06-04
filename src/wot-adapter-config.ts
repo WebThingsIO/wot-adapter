@@ -73,13 +73,14 @@ export class WoTAdapterConfig {
   public async load(): Promise<void> {
     await this.db.open();
     const db_config: Record<string, unknown> = await this.db.loadConfig();
-    const endpoints = db_config.endpoints as { [url: string]: WebThingEndpoint['authentication'] };
-
-    for (const k in endpoints) {
-      const url = <string> k;
-      // TODO: check if scheme is among the supported schemes
-      const endpoint = endpoints[url];
-      this.stored_endpoints.set(url, endpoint);
+    // eslint-disable-next-line max-len
+    for (const k in db_config) {
+      let e: WebThingEndpoint['authentication'] | undefined;
+      const dbe = <WebThingEndpoint['authentication'] | null> db_config[k];
+      if (dbe) {
+        e = dbe;
+      }
+      this.stored_endpoints.set(k, e);
     }
   }
 
@@ -88,7 +89,11 @@ export class WoTAdapterConfig {
     const newObject: Record<string, unknown> = {};
 
     for (const [key, value] of this.stored_endpoints) {
-      newObject[key] = value;
+      if (value) {
+        newObject[key] = value;
+      } else {
+        newObject[key] = null;
+      }
     }
 
     await this.db.saveConfig(newObject);
@@ -112,5 +117,13 @@ export class WoTAdapterConfig {
     return this.stored_endpoints.get(url);
   }
 
+
+  public containsUrl(u: string): boolean {
+    return this.stored_endpoints.has(u);
+  }
+
+  public getUrlData(u: string): WebThingEndpoint['authentication'] | undefined {
+    return this.stored_endpoints.get(u);
+  }
 
 }
