@@ -72,7 +72,16 @@ export class WoTAdapterConfig {
 
   // eslint-disable-next-line max-len
 
-  private isWTE(pet: unknown): pet is AuthenticationDataType {
+  private isWTE(pet: unknown): boolean {
+    // eslint-disable-next-line no-undefined
+    if (pet == null) {
+      return true;
+    } else {
+      return this.isWTE2(pet);
+    }
+  }
+
+  private isWTE2(pet: unknown): pet is AuthenticationDataType {
     // eslint-disable-next-line no-undefined
     return (pet as AuthenticationDataType).schema !== undefined;
   }
