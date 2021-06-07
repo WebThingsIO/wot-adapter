@@ -70,11 +70,27 @@ export class WoTAdapterConfig {
     this.db = new Database(name, path);
   }
 
+  // eslint-disable-next-line max-len
+
+  private isWTE(pet: unknown): pet is AuthenticationDataType {
+    // eslint-disable-next-line no-undefined
+    return (pet as AuthenticationDataType).schema !== undefined;
+  }
+
   public async load(): Promise<void> {
     await this.db.open();
     const db_config: Record<string, unknown> = await this.db.loadConfig();
     // eslint-disable-next-line max-len
     for (const k in db_config) {
+      const isValid = this.isWTE(db_config[k]);
+
+      // check for type correctnes
+      if (isValid == false) {
+        console.log('Invalid configuration data found ! ');
+        continue;
+      }
+
+
       let e: WebThingEndpoint['authentication'] | undefined;
       const dbe = <WebThingEndpoint['authentication'] | null> db_config[k];
       if (dbe) {
