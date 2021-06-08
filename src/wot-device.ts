@@ -1,73 +1,130 @@
+/**
+ * wot-device.ts
+ *
+ * This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/.*
+ */
 import { WoTAdapter } from './wot-adapter';
-import { Action, Device } from 'gateway-addon';
-import { ConsumedThing, Servient } from '@node-wot/core';
-import { HttpClientFactory, HttpsClientFactory } from '@node-wot/binding-http';
-import WoTImpl from '@node-wot/core/dist/wot-impl';
+import { Action, Device, Event, Property } from 'gateway-addon';
+import * as schema from 'gateway-addon/lib/schema';
+import { ConsumedThing } from 'wot-typescript-definitions';
 
-export class WoTDevice extends Device {
-  private readonly td: any;
+import { WoTDeviceProperty } from './wot-device-property';
+export default class WoTDevice extends Device {
 
-  private static readonly servient: Servient = new Servient();
+  private readonly _thing: ConsumedThing;
 
-  private static servientStarted = false;
+  private openHandles: Array<string | NodeJS.Timeout>;
 
-  private static thingFactory: any = null;
-
-  private consumedThing: any = null;
-
-  private requestedActions: any = new Map();
+  public get thing(): ConsumedThing {
+    return this._thing;
+  }
 
   public constructor(
     adapter: WoTAdapter,
     id: string,
-    url: string,
-    authentication: any,
-    td: any,
-    mdnsUrl: string
+    td: Record<string, unknown>,
+    thing: ConsumedThing
   ) {
     super(adapter, id);
-    this.td = td;
-    WoTDevice.initServient();
-  }
 
-  private static initServient(): void {
-    if (!WoTDevice.servient.hasClientFor('http')) {
-      WoTDevice.servient.addClientFactory(new HttpClientFactory());
+    // TODO: TD validation ?
+    this._thing = thing;
+    this.setTitle(td.title as string);
+    this.setTypes(td['@type'] as string[] || []);
+    this.setDescription(td.description as string);
+    this.setContext('https://www.w3.org/2019/wot/td/v1');
+
+    this.openHandles = [];
+    if(td.links) {
+      const links = td.links as schema.Link[];
+      for (const link of links) {
+        this.addLink(link);
+      }
     }
 
-    if (!WoTDevice.servient.hasClientFor('https')) {
-      WoTDevice.servient.addClientFactory(new HttpsClientFactory());
+    if (td.properties) {
+      const properties = td.properties as { [k: string]: schema.Property };
+      for (const propertyName in properties) {
+        const property = properties[propertyName];
+        const deviceProperty = new WoTDeviceProperty(this, propertyName, property);
+        this.addProperty(deviceProperty);
+        this.observeProperty(td, deviceProperty);
+      }
     }
 
-    if (!WoTDevice.servientStarted) {
-      WoTDevice.thingFactory = WoTDevice.servient.start();
-      WoTDevice.servientStarted = true;
+    if(td.actions) {
+      const actions = td.actions as { [k: string]: schema.Action};
+      for (const actionName in actions) {
+        const action = actions[actionName];
+        this.addAction(actionName, action);
+      }
+    }
+
+    if(td.events) {
+      const events = td.events as { [k: string]: schema.Event };
+      for (const eventName in events) {
+        const event = events[eventName];
+        this.addEvent(eventName, event);
+        this.subscribeEvent(eventName);
+      }
     }
   }
 
-  public consumeThing(): Promise<WoTImpl> {
-    return WoTDevice.thingFactory.then((tf: WoTImpl) => {
-      this.consumedThing = tf.consume(this.td);
-    });
-  }
-
-  public performAction(action: Action): Promise<void> {
+  public async performAction(action: Action): Promise<void> {
+    // Note: currently invoking an Action is a syncronous operation.
     action.start();
-    return this.consumedThing.then((ct: ConsumedThing) => {
-      // TODO: uriVariables are not supported?
-      ct.invokeAction(action.getName(), action.getInput(), undefined)
-        .then((res) => {
-          return res.json();
-        })
-        .then((res) => {
-          this.requestedActions.set(res[action.getName()].href, action);
-        })
-        .catch((e) => {
-          console.log(`Failed to perform action: ${e}`);
-          // TODO: The status field is private and there is no setter for it
-          // action.status = "error";
-          this.actionNotify(action);
-        });
+    try {
+      await this.thing.invokeAction(action.getName(), action.getInput());
+      // TODO: correctly handle the output. WebThingAPI does not have action outputs
+    } catch (error) {
+      console.log(`Failed to perform action: ${error}`);
+      // TODO: The status field is private and there is no setter for it
+      // action.status = 'error';
+      this.actionNotify(action);
+    }finally{
+      action.finish();
+    }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private observeProperty(td: Record<string, unknown>, property: Property<any>): void {
+    const properties = td.properties as Record<string, schema.Property>;
+    const schProp: schema.Property = properties[property.getName()];
+    // cannot observe write only
+    if (schProp.writeOnly === true) {
+      return;
+    }
+    // see if it can be observerd
+    if(schProp.observable) {
+      this.thing.observeProperty(property.getName(), (value) => {
+        property.setCachedValueAndNotify(value);
+      });
+      this.openHandles.push(property.getName());
+    }else{
+      const timeout = setInterval(async () => {
+        const value = await this.thing.readProperty(property.getName());
+        property.setCachedValueAndNotify(value);
+      }, 5000); // TODO: add configuration parameter
+      this.openHandles.push(timeout);
+    }
+  }
+
+  private subscribeEvent(eventName: string): void {
+    this.thing.subscribeEvent(eventName, (data) => {
+      this.eventNotify(new Event(this, eventName, data));
     });
+  }
+
+  public destroy(): void {
+    // close all the open handles
+    for (const handle of this.openHandles) {
+      if(typeof (handle) === 'string') {
+        this.thing.unobserveProperty(handle);
+      }else{
+        clearInterval(handle);
+      }
+    }
   }
 }
