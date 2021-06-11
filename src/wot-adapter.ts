@@ -50,6 +50,11 @@ export class WoTAdapter extends Adapter {
 
   async unload(): Promise<void> {
     this.discovery && this.discovery.stop();
+
+    for (const device of Object.values(this.getDevices())) {
+      (device as WoTDevice).destroy();
+    }
+
     this.srv && this.srv.shutdown();
 
     return super.unload();
