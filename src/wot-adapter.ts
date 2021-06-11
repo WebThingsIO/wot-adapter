@@ -105,14 +105,14 @@ export class WoTAdapter extends Adapter {
         if (cached) {
           continue;
         }
-        await this.removeThing(this.getDevices()[id]);
+        await this.removeThing(this.getDevices()[id] as WoTDevice);
       }
 
       await this.addDevice(href, thing, authdata);
     }
   }
 
-  unloadThing(url: string): void {
+  async unloadThing(url: string): Promise<void> {
     url = url.replace(/\/$/, '');
 
     const deviceId = url;
@@ -122,26 +122,21 @@ export class WoTAdapter extends Adapter {
       return;
     }
 
+    const device = this.getDevices()[deviceId] as WoTDevice;
 
-    const d: Device = this.getDevices()[deviceId];
-
-    this.removeThing(d);
+    this.removeThing(device);
   }
 
-  // TODO: The method signature does not correspond to the one from the parent class
-  //  (there is no `internal` parameter), that's why I've added the default value
-  // as a workaround for now
-  removeThing(device: Device): Promise<Device> {
-    return this.removeDeviceFromConfig(device).then(() => {
-      if (this.getDevices.hasOwnProperty(device.getId())) {
-        this.handleDeviceRemoved(device);
-        // TODO: Uncomment after implementing the device class
-        // device.closeWebSocket();
-        return device;
-      } else {
-        throw new Error(`Device: ${device.getId()} not found.`);
-      }
-    });
+  async removeThing(device: WoTDevice): Promise<Device> {
+    await this.removeDeviceFromConfig(device);
+
+    if (this.getDevices.hasOwnProperty(device.getId())) {
+      this.handleDeviceRemoved(device);
+      device.destroy();
+      return device;
+    } else {
+      throw new Error(`Device: ${device.getId()} not found.`);
+    }
   }
 
   async removeDeviceFromConfig(device: Device): Promise<void> {
