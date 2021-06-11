@@ -45,7 +45,7 @@ export type WebThingEndpoint = {
 export class WoTAdapterConfig {
   private db: Database;
 
-  private stored_endpoints: Map<string, WebThingEndpoint['authentication']> = new Map();
+  private stored_endpoints: Map<string, WebThingEndpoint['authentication'] | null> = new Map();
 
   private _pollInterval = 1;
 
@@ -70,42 +70,24 @@ export class WoTAdapterConfig {
     this.db = new Database(name, path);
   }
 
-  // eslint-disable-next-line max-len
-
-  private isWTE(pet: unknown): boolean {
-    // eslint-disable-next-line no-undefined
-    if (pet == null) {
-      return true;
-    } else {
-      return this.isWTE2(pet);
-    }
-  }
-
-  private isWTE2(pet: unknown): pet is AuthenticationDataType {
-    // eslint-disable-next-line no-undefined
-    return (pet as AuthenticationDataType).schema !== undefined;
+  private isAuthenticationData(configuration: unknown):
+                              configuration is (WebThingEndpoint['authentication'] | null) {
+    return configuration === null || !!(configuration as AuthenticationDataType).schema;
   }
 
   public async load(): Promise<void> {
     await this.db.open();
     const db_config: Record<string, unknown> = await this.db.loadConfig();
-    // eslint-disable-next-line max-len
-    for (const k in db_config) {
-      const isValid = this.isWTE(db_config[k]);
 
+    for (const k in db_config) {
       // check for type correctnes
-      if (isValid == false) {
-        console.log('Invalid configuration data found ! ');
+      const data = db_config[k];
+      if (!this.isAuthenticationData(data)) {
+        console.log('Invalid configuration data found !', k, ':', data);
         continue;
       }
 
-
-      let e: WebThingEndpoint['authentication'] | undefined;
-      const dbe = <WebThingEndpoint['authentication'] | null> db_config[k];
-      if (dbe) {
-        e = dbe;
-      }
-      this.stored_endpoints.set(k, e);
+      this.stored_endpoints.set(k, data);
     }
   }
 
@@ -125,7 +107,7 @@ export class WoTAdapterConfig {
   }
 
   public add(d: WebThingEndpoint): void {
-    this.stored_endpoints.set(d.url, d.authentication);
+    this.stored_endpoints.set(d.url, d.authentication ? d.authentication : null);
     this.save();
   }
 
@@ -139,16 +121,18 @@ export class WoTAdapterConfig {
   }
 
   public configData(url: string): AuthenticationDataType | undefined {
-    return this.stored_endpoints.get(url);
+    let result;
+    const data = this.stored_endpoints.get(url);
+
+    if(data !== null) {
+      result = data;
+    }
+
+    return result;
   }
 
 
   public containsUrl(u: string): boolean {
     return this.stored_endpoints.has(u);
   }
-
-  public getUrlData(u: string): WebThingEndpoint['authentication'] | undefined {
-    return this.stored_endpoints.get(u);
-  }
-
 }
