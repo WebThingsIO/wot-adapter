@@ -53,6 +53,12 @@ export class WoTAdapterConfig {
 
   private _retryInterval = 10;
 
+  private __continuos_discovery = false;
+
+  public get continuosDiscovery(): boolean {
+    return this.__continuos_discovery;
+  }
+
   public get pollInterval(): number {
     return this._pollInterval;
   }

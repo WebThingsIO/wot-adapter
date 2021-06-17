@@ -21,21 +21,16 @@ export default class WoTDevice extends Device {
     return this._thing;
   }
 
-  public constructor(
-    adapter: WoTAdapter,
-    id: string,
-    thing: ConsumedThing
-  ) {
-    super(adapter, id);
-    const td = thing.getThingDescription();
+  public start(): void {
+    const td = this._thing.getThingDescription();
     // TODO: TD validation ?
-    this._thing = thing;
+
     this.setTitle(td.title as string);
     this.setTypes(td['@type'] as string[] || []);
     this.setDescription(td.description as string);
     this.setContext('https://www.w3.org/2019/wot/td/v1');
 
-    this.openHandles = [];
+
     if(td.links) {
       const links = td.links as schema.Link[];
       for (const link of links) {
@@ -69,6 +64,16 @@ export default class WoTDevice extends Device {
         this.subscribeEvent(eventName);
       }
     }
+  }
+
+  public constructor(
+    adapter: WoTAdapter,
+    id: string,
+    thing: ConsumedThing
+  ) {
+    super(adapter, id);
+    this._thing = thing;
+    this.openHandles = [];
   }
 
   public async performAction(action: Action): Promise<void> {
