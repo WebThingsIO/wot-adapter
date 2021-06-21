@@ -33,25 +33,21 @@ export class WoTAdapter extends Adapter {
 
   private wot?: WoT.WoT;
 
-  private __continuos_discovery = false;
+  private continuos_discovery = false;
 
-  private __on_discovery = false;
+  private on_discovery = false;
 
-  private __on_pairing = false;
-
-  public set continuosDiscovery(b: boolean) {
-    this.__continuos_discovery = b;
-  }
+  private on_pairing = false;
 
   async initDiscovery(): Promise<void> {
-    if (this.__on_discovery) {
+    if (this.on_discovery) {
       return;
     }
     if (
-      this.__continuos_discovery == true ||
-        (this.__continuos_discovery == false && this.__on_pairing == true)
+      this.continuos_discovery == true ||
+        (this.continuos_discovery == false && this.on_pairing == true)
     ) {
-      this.__on_discovery = true;
+      this.on_discovery = true;
       this.discovery = multicast();
 
 
@@ -62,24 +58,29 @@ export class WoTAdapter extends Adapter {
       this.discovery.on('lostThing', (url: string) => {
         this.unloadThing(url);
       });
-
-      this.srv = new Servient();
-      this.wot = await this.srv.start();
     }
   }
 
   terminateDiscovery(): void {
-    if (this.__on_discovery) {
-      if (this.__continuos_discovery == false && this.__on_pairing == true) {
+    if (this.on_discovery) {
+      if (this.continuos_discovery == false && this.on_pairing == true) {
         this.discovery?.removeAllListeners('foundThing');
         this.discovery?.removeAllListeners('lostThing');
-        this.discovery && this.discovery.stop();
+        this.discovery?.stop();
       }
     }
   }
 
-  constructor(manager: AddonManagerProxy,) {
+  constructor(manager: AddonManagerProxy, configuration: WoTAdapterConfig) {
     super(manager, manifest.id, manifest.id);
+    this.continuos_discovery = configuration.continuosDiscovery;
+  }
+
+  async start(): Promise<void> {
+    this.srv = new Servient();
+    this.wot = await this.srv.start();
+
+    this.continuos_discovery && await this.initDiscovery();
   }
 
   async unload(): Promise<void> {
@@ -93,24 +94,10 @@ export class WoTAdapter extends Adapter {
   }
 
   async loadThing(url: string, retries?: number, retryInterval?: number,
-                  authdata?: AuthenticationDataType): Promise<void> {
+                  authdata: AuthenticationDataType = { schema: 'nosec' }): Promise<void> {
     const href = url.replace(/\/$/, '');
 
-    let v: [Record<string, unknown>, boolean];
-
-    if (authdata) {
-      const dopts: DiscoveryOptions = {
-        retries,
-        retryInterval,
-        authentication: authdata,
-      };
-
-      v = await direct(href, dopts);
-    } else {
-      v = await direct(href);
-    }
-
-    const [data, cached] = v;
+    const [data, cached] = await direct(href, { retries, retryInterval, authentication: authdata });
 
     let things;
     if (Array.isArray(data)) {
@@ -207,42 +194,24 @@ export class WoTAdapter extends Adapter {
     }
   }
 
-  /**
-   * @method handleDeviceSaved
-   *
-   * Called to indicate that the user has saved a device to their gateway. This
-   * is also called when the adapter starts up for every device which has
-   * already been saved.
-   *
-   * This can be used for keeping track of what devices have previously been
-   * discovered, such that the adapter can rebuild those, clean up old nodes,
-   * etc.
-   *
-   * @param {string} deviceId - ID of the device
-   * @param {object} device - the saved device description
-   */
   handleDeviceSaved(_deviceId: string, _device: DeviceWithoutIdSchema): void {
-    // pass
-    const d: Device = this.getDevice(_deviceId);
-    if (d) {
-      const dd: WoTDevice = <WoTDevice>(d);
-      dd.start();
-    }
+    const device: WoTDevice = this.getDevice(_deviceId) as WoTDevice;
+    device && device.start();
   }
 
   startPairing(_timeoutSeconds: number): void {
     // init discovery here
-    if (this.__continuos_discovery == false) {
-      this.__on_pairing = true;
+    if (this.continuos_discovery == false) {
+      this.on_pairing = true;
       this.initDiscovery();
     }
   }
 
   cancelPairing(): void {
     // stop discovery here
-    if (this.__continuos_discovery == false && this.__on_pairing == true) {
+    if (this.continuos_discovery == false && this.on_pairing == true) {
       this.terminateDiscovery();
-      this.__on_pairing = false;
+      this.on_pairing = false;
     }
   }
 }
@@ -250,18 +219,14 @@ export class WoTAdapter extends Adapter {
 
 export default async function loadWoTAdapter(manager: AddonManagerProxy): Promise<void> {
   try {
-    const adapter = new WoTAdapter(manager);
-
     const configuration: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
     await configuration.load();
 
-    adapter.continuosDiscovery = configuration.continuosDiscovery;
-
+    const adapter = new WoTAdapter(manager, configuration);
+    await adapter.start();
 
     const retries = configuration.retries;
     const retryInterval = configuration.retryInterval;
-
-    await adapter.initDiscovery();
 
     for(const s in configuration.urlList) {
       const authentication = configuration.configData(s);

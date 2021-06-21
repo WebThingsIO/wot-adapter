@@ -22,45 +22,17 @@ export default class WoTDevice extends Device {
   }
 
   public start(): void {
-    const td = this._thing.getThingDescription();
-    // TODO: TD validation ?
-
-    this.setTitle(td.title as string);
-    this.setTypes(td['@type'] as string[] || []);
-    this.setDescription(td.description as string);
-    this.setContext('https://www.w3.org/2019/wot/td/v1');
-
-
-    if(td.links) {
-      const links = td.links as schema.Link[];
-      for (const link of links) {
-        this.addLink(link);
-      }
-    }
-
+    const td = this.thing.getThingDescription();
     if (td.properties) {
       const properties = td.properties as { [k: string]: schema.Property };
       for (const propertyName in properties) {
-        const property = properties[propertyName];
-        const deviceProperty = new WoTDeviceProperty(this, propertyName, property);
-        this.addProperty(deviceProperty);
-        this.observeProperty(td, deviceProperty);
+        const deviceProperty = this.findProperty(propertyName);
+        deviceProperty && this.observeProperty(td, deviceProperty);
       }
     }
-
-    if(td.actions) {
-      const actions = td.actions as { [k: string]: schema.Action};
-      for (const actionName in actions) {
-        const action = actions[actionName];
-        this.addAction(actionName, action);
-      }
-    }
-
-    if(td.events) {
+    if (td.events) {
       const events = td.events as { [k: string]: schema.Event };
       for (const eventName in events) {
-        const event = events[eventName];
-        this.addEvent(eventName, event);
         this.subscribeEvent(eventName);
       }
     }
@@ -74,6 +46,47 @@ export default class WoTDevice extends Device {
     super(adapter, id);
     this._thing = thing;
     this.openHandles = [];
+
+    const td = thing.getThingDescription();
+    // TODO: TD validation ?
+
+    this.setTitle(td.title as string);
+    this.setTypes(td['@type'] as string[] || []);
+    this.setDescription(td.description as string);
+    this.setContext('https://www.w3.org/2019/wot/td/v1');
+
+
+    if (td.links) {
+      const links = td.links as schema.Link[];
+      for (const link of links) {
+        this.addLink(link);
+      }
+    }
+
+    if (td.properties) {
+      const properties = td.properties as { [k: string]: schema.Property };
+      for (const propertyName in properties) {
+        const property = properties[propertyName];
+        const deviceProperty = new WoTDeviceProperty(this, propertyName, property);
+        this.addProperty(deviceProperty);
+      }
+    }
+
+    if (td.actions) {
+      const actions = td.actions as { [k: string]: schema.Action };
+      for (const actionName in actions) {
+        const action = actions[actionName];
+        this.addAction(actionName, action);
+      }
+    }
+
+    if (td.events) {
+      const events = td.events as { [k: string]: schema.Event };
+      for (const eventName in events) {
+        const event = events[eventName];
+        this.addEvent(eventName, event);
+      }
+    }
   }
 
   public async performAction(action: Action): Promise<void> {
