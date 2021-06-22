@@ -8,11 +8,11 @@
 import EventEmitter from 'events';
 import { ServiceType, Browser } from 'dnssd';
 import * as crypto from 'crypto';
-import { AuthenticationDataType } from './wot-adapter-config';
+import fetch, { Response, HeadersInit } from 'node-fetch';
 
 type CacheRecord = {
   href: string;
-  authentication?: AuthenticationDataType;
+  authentication?: AuthenticationData;
   digest: string;
   td: Record<string, unknown>;
   timestamp: number;
@@ -20,10 +20,14 @@ type CacheRecord = {
 // TODO: define a ThingDescription type
 const tdsCache: Map<string, CacheRecord> = new Map();
 
+type AuthenticationData = {
+  schema: 'nosec'|'jwt' | 'basic' | 'digest';
+  token?: string;
+};
 export type DiscoveryOptions = {
   retries?: number;
   retryInterval?: number;
-  authentication: AuthenticationDataType;
+  authentication: AuthenticationData;
 };
 
 export interface Discovery extends EventEmitter {
@@ -36,8 +40,7 @@ export interface Discovery extends EventEmitter {
   stop(): void;
 }
 
-function getHeaders(authentication: AuthenticationDataType,
-                    includeContentType = false): HeadersInit {
+function getHeaders(authentication: AuthenticationData, includeContentType = false): HeadersInit {
   const headers: HeadersInit = {
     Accept: 'application/json',
   };
@@ -135,7 +138,7 @@ Promise<[Record<string, unknown>, boolean]> {
     });
   }
   if (tdsCache.get(href)!.timestamp + 5000 > Date.now()) {
-    return [tdsCache.get(href)!, true];
+    return [tdsCache.get(href)!.td, true];
   }
 
   const res = await fetchWithRetries(href, options);
@@ -158,7 +161,7 @@ Promise<[Record<string, unknown>, boolean]> {
       href,
       td,
       authentication: options?.authentication,
-      digest: '',
+      digest: dig,
       timestamp: Date.now(),
     });
 

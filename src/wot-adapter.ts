@@ -7,13 +7,13 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.*
  */
 
-import { AddonManagerProxy, Adapter, Database, Device } from 'gateway-addon';
+import { AddonManagerProxy, Adapter, Device } from 'gateway-addon';
 import manifest from '../manifest.json';
 import WoTDevice from './wot-device';
-import { direct, multicast, DiscoveryOptions, Discovery } from './discovery';
+import { direct, multicast, Discovery } from './discovery';
 import Servient from '@node-wot/core';
 import { WoTAdapterConfig, AuthenticationDataType } from './wot-adapter-config';
-import { DeviceWithoutId as DeviceWithoutIdSchema } from '../node_modules/gateway-addon/src/schema';
+import { DeviceWithoutId as DeviceWithoutIdSchema } from 'gateway-addon/src/schema';
 
 const POLL_INTERVAL = 5 * 1000;
 

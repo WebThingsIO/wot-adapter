@@ -27,7 +27,8 @@
   "dependencies": {
     "@node-wot/binding-http": "^0.7.5",
     "@node-wot/core": "^0.7.5",
-    "dnssd": "^0.4.1"
+    "dnssd": "^0.4.1",
+    "node-fetch": "^2.6.1"
   },
   "peerDependencies": {
     "gateway-addon": "^1.1.0-alpha.2"
@@ -39,10 +40,13 @@
     "@types/node": "^14.14.37",
     "@types/sinon": "^9.0.11",
     "@types/sqlite3": "^3.1.7",
+    "@types/chai-as-promised": "^7.1.4",
+    "@types/node-fetch": "^2.5.10",
     "@types/ws": "^7.4.1",
     "@typescript-eslint/eslint-plugin": "^4.21.0",
     "@typescript-eslint/parser": "^4.21.0",
     "chai": "^4.3.4",
+    "chai-as-promised": "^7.1.1",
     "eslint": "^7.24.0",
     "eslint-config-prettier": "^8.1.0",
     "mocha": "^8.3.2",
