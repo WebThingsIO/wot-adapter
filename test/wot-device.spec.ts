@@ -34,8 +34,9 @@ describe('WoT Device tests', () => {
         },
       },
     };
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
+    testDevice.start();
     testDevice.setProperty('test', 1);
     expect(mockConsumedThing.writeProperty).calledOnceWith('test', 1);
     testDevice.destroy();
@@ -49,28 +50,14 @@ describe('WoT Device tests', () => {
         },
       },
     };
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
+    testDevice.start();
     mockConsumedThing.readProperty.returns(Promise.resolve(1));
     const value = await testDevice.getProperty('test');
 
     expect(value).be.eqls(1);
     expect(mockConsumedThing.readProperty).calledOnceWith('test');
-  });
-
-  it('Should not observe write only properties', async () => {
-    const td = {
-      properties: {
-        test: {
-          writeOnly: true,
-          type: 'number',
-        },
-      },
-    };
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
-    // eslint-disable-next-line dot-notation
-    expect(testDevice['openHandles']).to.be.empty;
   });
 
   it('Should invoke an action', async () => {
@@ -83,8 +70,9 @@ describe('WoT Device tests', () => {
         },
       },
     };
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
+    testDevice.start();
     await testDevice.requestAction('1234', 'test', 1);
 
     expect(mockConsumedThing.invokeAction).calledOnceWith('test', 1);
@@ -109,8 +97,9 @@ describe('WoT Device tests', () => {
       WoT.InteractionOptions | undefined], Promise < void>>;
 
     mockConsumedThing.subscribeEvent = subscribe;
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
+    testDevice.start();
     const eventNotifySpy = spy(testDevice, 'eventNotify');
 
     eventCallback!(1);
@@ -140,10 +129,10 @@ describe('WoT Device tests', () => {
         WoT.InteractionOptions | undefined], Promise<void>>;
 
     mockConsumedThing.observeProperty = subscribe;
-
-    testDevice = new WoTDevice(mockAdapter, 'test', td, mockConsumedThing);
+    mockConsumedThing.getThingDescription.returns(td);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
     const notifySpy = sinon.spy(testDevice.findProperty('test')!, 'setCachedValueAndNotify');
-
+    testDevice.start();
     expect(subscribe).calledOnce;
 
     propertyChangeListener!(1);

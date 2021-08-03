@@ -21,23 +21,42 @@ export default class WoTDevice extends Device {
     return this._thing;
   }
 
+  public start(): void {
+    const td = this.thing.getThingDescription();
+    if (td.properties) {
+      const properties = td.properties as { [k: string]: schema.Property };
+      for (const propertyName in properties) {
+        const deviceProperty = this.findProperty(propertyName);
+        deviceProperty && this.observeProperty(td, deviceProperty);
+      }
+    }
+    if (td.events) {
+      const events = td.events as { [k: string]: schema.Event };
+      for (const eventName in events) {
+        this.subscribeEvent(eventName);
+      }
+    }
+  }
+
   public constructor(
     adapter: WoTAdapter,
     id: string,
-    td: Record<string, unknown>,
     thing: ConsumedThing
   ) {
     super(adapter, id);
-
-    // TODO: TD validation ?
     this._thing = thing;
+    this.openHandles = [];
+
+    const td = thing.getThingDescription();
+    // TODO: TD validation ?
+
     this.setTitle(td.title as string);
     this.setTypes(td['@type'] as string[] || []);
     this.setDescription(td.description as string);
     this.setContext('https://www.w3.org/2019/wot/td/v1');
 
-    this.openHandles = [];
-    if(td.links) {
+
+    if (td.links) {
       const links = td.links as schema.Link[];
       for (const link of links) {
         this.addLink(link);
@@ -50,24 +69,22 @@ export default class WoTDevice extends Device {
         const property = properties[propertyName];
         const deviceProperty = new WoTDeviceProperty(this, propertyName, property);
         this.addProperty(deviceProperty);
-        this.observeProperty(td, deviceProperty);
       }
     }
 
-    if(td.actions) {
-      const actions = td.actions as { [k: string]: schema.Action};
+    if (td.actions) {
+      const actions = td.actions as { [k: string]: schema.Action };
       for (const actionName in actions) {
         const action = actions[actionName];
         this.addAction(actionName, action);
       }
     }
 
-    if(td.events) {
+    if (td.events) {
       const events = td.events as { [k: string]: schema.Event };
       for (const eventName in events) {
         const event = events[eventName];
         this.addEvent(eventName, event);
-        this.subscribeEvent(eventName);
       }
     }
   }
