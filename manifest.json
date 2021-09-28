@@ -17,45 +17,55 @@
     "name": "W3C Web Thing",
     "options": {
         "default": {
-            "urls": [],
-            "pollInterval": 5
+            "enpoints": [],
+            "pollInterval": 5,
+            "retries": 3,
+            "retryInterval": 10,
+            "continuosDiscovery": false,
+            "useObservable": false
         },
         "schema": {
             "type": "object",
             "required": [
-                "urls",
-                "pollInterval"
+                "endpoints"
             ],
             "properties": {
-                "urls": {
-                    "type": "array",
+                "endpoints": {
+                    "type":"array",
+                    "description": "A list of known Web Things endpoints",
                     "items": {
-                        "type": "object",
-                        "required": [
-                            "href"
-                        ],
+                        "type":"object",
                         "properties": {
-                            "href": {
-                                "description": "Base URL of web thing",
+                            "url": {
                                 "type": "string"
                             },
-                            "authentication": {
-                                "description": "Authentication credentials",
+                            "security" : {
                                 "type": "object",
-                                "required": [
-                                    "method"
-                                ],
                                 "properties": {
-                                    "method": {
+                                    "scheme": {
                                         "type": "string",
                                         "enum": [
-                                            "none",
-                                            "jwt"
+                                            "nosec",
+                                            "jwt",
+                                            "basic",
+                                            "digest"
                                         ]
                                     },
                                     "token": {
-                                        "description": "Token (for JWT)",
-                                        "type": "string"
+                                        "type":"string",
+                                        "description": "JWT token"
+                                    },
+                                    "digest": {
+                                        "type": "string",
+                                        "description": "The digest token used with digest scheme"
+                                    },
+                                    "user": {
+                                        "type": "string",
+                                        "description": "user name used in basic scheme"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "description": "password used in basic scheme"
                                     }
                                 }
                             }
@@ -65,6 +75,22 @@
                 "pollInterval": {
                     "description": "The interval, in seconds, at which to poll property values.",
                     "type": "number"
+                },
+                "retries": {
+                    "description": "How many attempts to perform for retriving a Thing Description.",
+                    "type": "number"
+                },
+                "retryInterval": {
+                    "description": "The interval, in seconds, at which to ask for a Thing Description.",
+                    "type": "number"
+                },
+                "continuosDiscovery": {
+                    "description": "Activate background multicast discovery.",
+                    "type": "boolean"
+                },
+                "useObservable": {
+                    "description": "Use observable forms when they are avaible",
+                    "type": "boolean"
                 }
             }
         }

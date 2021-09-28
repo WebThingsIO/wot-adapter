@@ -130,7 +130,7 @@ describe('WoT Device tests', () => {
 
     mockConsumedThing.observeProperty = subscribe;
     mockConsumedThing.getThingDescription.returns(td);
-    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing);
+    testDevice = new WoTDevice(mockAdapter, 'test', mockConsumedThing, { useObservable: true });
     const notifySpy = sinon.spy(testDevice.findProperty('test')!, 'setCachedValueAndNotify');
     testDevice.start();
     expect(subscribe).calledOnce;

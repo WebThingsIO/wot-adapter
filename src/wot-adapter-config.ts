@@ -45,7 +45,7 @@ export type WebThingEndpoint = {
 export class WoTAdapterConfig {
   private db: Database;
 
-  private stored_endpoints: Map<string, WebThingEndpoint['authentication'] | null> = new Map();
+  private stored_endpoints: Map<string, WebThingEndpoint['authentication']> = new Map();
 
   private _pollInterval = 1;
 
@@ -53,10 +53,16 @@ export class WoTAdapterConfig {
 
   private _retryInterval = 10;
 
-  private __continuos_discovery = false;
+  private _continuos_discovery = false;
+
+  private _useObservable = false;
+
+  public get useObservable(): boolean {
+    return this._useObservable;
+  }
 
   public get continuosDiscovery(): boolean {
-    return this.__continuos_discovery;
+    return this._continuos_discovery;
   }
 
   public get pollInterval(): number {
@@ -77,49 +83,61 @@ export class WoTAdapterConfig {
   }
 
   private isAuthenticationData(configuration: unknown):
-                              configuration is (WebThingEndpoint['authentication'] | null) {
-    return configuration === null || !!(configuration as AuthenticationDataType).schema;
+                              configuration is (WebThingEndpoint['authentication'] | undefined) {
+    // eslint-disable-next-line no-undefined
+    return configuration === undefined || !!(configuration as AuthenticationDataType).schema;
   }
 
   public async load(): Promise<void> {
     await this.db.open();
     const db_config: Record<string, unknown> = await this.db.loadConfig();
 
-    for (const k in db_config) {
+    this._retries = db_config.retries as number ?? this._retries;
+    this._pollInterval = db_config.pollInterval as number ?? this._pollInterval;
+    this._retryInterval = db_config.retryInterval as number ?? this.retryInterval;
+    this._continuos_discovery = db_config.continuosDiscovery as boolean ?? this.continuosDiscovery;
+    this._useObservable = db_config.useObservable as boolean ?? this._useObservable;
+
+    const endpoints = db_config.endpoints as WebThingEndpoint[];
+    if(!endpoints) {
+      console.warn('No endpoints found');
+      return;
+    }
+
+    for (const endpoint of endpoints) {
       // check for type correctnes
-      const data = db_config[k];
+      if(typeof endpoint.url !== 'string') {
+        console.log('Invalid configuration data found !', endpoint);
+      }
+
+      const data = endpoint.authentication;
       if (!this.isAuthenticationData(data)) {
-        console.log('Invalid configuration data found !', k, ':', data);
+        console.log('Invalid authentication data found !', endpoint.url, ':', data);
         continue;
       }
 
-      this.stored_endpoints.set(k, data);
+      this.stored_endpoints.set(endpoint.url, data);
     }
+    this.db.close();
   }
 
   public async save(): Promise<void> {
     await this.db.open();
-    const newObject: Record<string, unknown> = {};
+    const newObject: { endpoints: WebThingEndpoint[] } = { endpoints: [] };
 
-    for (const [key, value] of this.stored_endpoints) {
-      if (value) {
-        newObject[key] = value;
-      } else {
-        newObject[key] = null;
-      }
+    for (const [url, authentication] of this.stored_endpoints) {
+      newObject.endpoints.push({ url, authentication });
     }
-
     await this.db.saveConfig(newObject);
+    this.db.close();
   }
 
   public add(d: WebThingEndpoint): void {
-    this.stored_endpoints.set(d.url, d.authentication ? d.authentication : null);
-    this.save();
+    this.stored_endpoints.set(d.url, d.authentication);
   }
 
   public remove(url: string): void {
     this.stored_endpoints.delete(url);
-    this.save();
   }
 
   public urlList(): IterableIterator<string> {

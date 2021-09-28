@@ -14,6 +14,7 @@ import { direct, multicast, Discovery } from './discovery';
 import Servient from '@node-wot/core';
 import { WoTAdapterConfig, AuthenticationDataType } from './wot-adapter-config';
 import { DeviceWithoutId as DeviceWithoutIdSchema } from 'gateway-addon/src/schema';
+import { HttpClientFactory } from '@node-wot/binding-http';
 
 const POLL_INTERVAL = 5 * 1000;
 
@@ -33,11 +34,15 @@ export class WoTAdapter extends Adapter {
 
   private wot?: WoT.WoT;
 
+  private savedDeviceIds: Set<string> = new Set();
+
   private continuos_discovery = false;
 
   private on_discovery = false;
 
   private on_pairing = false;
+
+  private useObservable = false;
 
   async initDiscovery(): Promise<void> {
     if (this.on_discovery) {
@@ -74,10 +79,13 @@ export class WoTAdapter extends Adapter {
   constructor(manager: AddonManagerProxy, configuration: WoTAdapterConfig) {
     super(manager, manifest.id, manifest.id);
     this.continuos_discovery = configuration.continuosDiscovery;
+    this.useObservable = configuration.useObservable;
+    manager.addAdapter(this);
   }
 
   async start(): Promise<void> {
     this.srv = new Servient();
+    this.srv.addClientFactory(new HttpClientFactory());
     this.wot = await this.srv.start();
 
     this.continuos_discovery && await this.initDiscovery();
@@ -126,8 +134,14 @@ export class WoTAdapter extends Adapter {
         }
         await this.removeThing(this.getDevices()[id] as WoTDevice);
       }
+      const device = await this.addDevice(href, thing, authdata);
 
-      await this.addDevice(href, thing, authdata);
+      if(this.savedDeviceIds.has(device.getId())) {
+        // The device was saved on adapter startup
+        // we need to manually start it now.
+        console.warn('Device', device.getId(), 'was previously saved. starting it now');
+        (<WoTDevice>device).start();
+      }
     }
   }
 
@@ -149,7 +163,7 @@ export class WoTAdapter extends Adapter {
   async removeThing(device: WoTDevice): Promise<Device> {
     await this.removeDeviceFromConfig(device);
 
-    if (this.getDevices.hasOwnProperty(device.getId())) {
+    if (this.getDevices()[device.getId()]) {
       this.handleDeviceRemoved(device);
       device.destroy();
       return device;
@@ -179,8 +193,9 @@ export class WoTAdapter extends Adapter {
       throw new Error(`Device: ${url} already exists.`);
     } else {
       const thing = await this.wot.consume(td);
-      const device = new WoTDevice(this, url, thing);
-      this.handleDeviceAdded(device);
+      const device = new WoTDevice(this, url.replace(/[:/]/g, '-'), thing, {
+        useObservable: this.useObservable,
+      });
 
       // adds to current config
 
@@ -189,7 +204,7 @@ export class WoTAdapter extends Adapter {
 
       wcd.add({ url, authentication: authdata });
       await wcd.save();
-
+      this.handleDeviceAdded(device);
       return device;
     }
   }
@@ -197,6 +212,13 @@ export class WoTAdapter extends Adapter {
   handleDeviceSaved(_deviceId: string, _device: DeviceWithoutIdSchema): void {
     const device: WoTDevice = this.getDevice(_deviceId) as WoTDevice;
     device && device.start();
+    if(!device) {
+      // Sometime this method is called before we have loaded the device
+      // we need to store the id so that we can start the device when
+      // is fully loaded in the adapter
+      console.warn('Device', _deviceId, 'has been saved before loading');
+      this.savedDeviceIds.add(_deviceId);
+    }
   }
 
   startPairing(_timeoutSeconds: number): void {
@@ -224,11 +246,10 @@ export default async function loadWoTAdapter(manager: AddonManagerProxy): Promis
 
     const adapter = new WoTAdapter(manager, configuration);
     await adapter.start();
-
     const retries = configuration.retries;
     const retryInterval = configuration.retryInterval;
 
-    for(const s in configuration.urlList) {
+    for(const s of configuration.urlList()) {
       const authentication = configuration.configData(s);
       await adapter.loadThing(
         s,
