@@ -41,7 +41,8 @@ export default class WoTDevice extends Device {
   public constructor(
     adapter: WoTAdapter,
     id: string,
-    thing: ConsumedThing
+    thing: ConsumedThing,
+    private configuration = { useObservable: false }
   ) {
     super(adapter, id);
     this._thing = thing;
@@ -114,7 +115,7 @@ export default class WoTDevice extends Device {
       return;
     }
     // see if it can be observerd
-    if(schProp.observable) {
+    if(schProp.observable && this.configuration.useObservable) {
       this.thing.observeProperty(property.getName(), (value) => {
         property.setCachedValueAndNotify(value);
       });
