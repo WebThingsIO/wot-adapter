@@ -12,7 +12,6 @@ import { ConsumedThing } from 'wot-typescript-definitions';
 
 import { WoTDeviceProperty } from './wot-device-property';
 export default class WoTDevice extends Device {
-
   private readonly _thing: ConsumedThing;
 
   private openHandles: Array<string | NodeJS.Timeout>;
@@ -52,10 +51,9 @@ export default class WoTDevice extends Device {
     // TODO: TD validation ?
 
     this.setTitle(td.title as string);
-    this.setTypes(td['@type'] as string[] || []);
+    this.setTypes((td['@type'] as string[]) || []);
     this.setDescription(td.description as string);
     this.setContext('https://www.w3.org/2019/wot/td/v1');
-
 
     if (td.links) {
       const links = td.links as schema.Link[];
@@ -101,7 +99,7 @@ export default class WoTDevice extends Device {
       // TODO: The status field is private and there is no setter for it
       // action.status = 'error';
       this.actionNotify(action);
-    }finally{
+    } finally {
       action.finish();
     }
   }
@@ -115,12 +113,12 @@ export default class WoTDevice extends Device {
       return;
     }
     // see if it can be observerd
-    if(schProp.observable && this.configuration.useObservable) {
+    if (schProp.observable && this.configuration.useObservable) {
       this.thing.observeProperty(property.getName(), (value) => {
         property.setCachedValueAndNotify(value);
       });
       this.openHandles.push(property.getName());
-    }else{
+    } else {
       const timeout = setInterval(async () => {
         const value = await this.thing.readProperty(property.getName());
         property.setCachedValueAndNotify(value);
@@ -138,9 +136,9 @@ export default class WoTDevice extends Device {
   public destroy(): void {
     // close all the open handles
     for (const handle of this.openHandles) {
-      if(typeof (handle) === 'string') {
+      if (typeof handle === 'string') {
         this.thing.unobserveProperty(handle);
-      }else{
+      } else {
         clearInterval(handle);
       }
     }

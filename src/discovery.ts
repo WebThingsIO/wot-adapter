@@ -21,7 +21,7 @@ type CacheRecord = {
 const tdsCache: Map<string, CacheRecord> = new Map();
 
 type AuthenticationData = {
-  schema: 'nosec'|'jwt' | 'basic' | 'digest';
+  schema: 'nosec' | 'jwt' | 'basic' | 'digest';
   token?: string;
 };
 export type DiscoveryOptions = {
@@ -31,8 +31,10 @@ export type DiscoveryOptions = {
 };
 
 export interface Discovery extends EventEmitter {
-  on(event: 'foundThing', listener: (data: {
-    url: string; td: Record<string, unknown>;}) => void): this;
+  on(
+    event: 'foundThing',
+    listener: (data: { url: string; td: Record<string, unknown> }) => void
+  ): this;
   on(event: 'lostThing', listener: (url: string) => void): this;
   on(event: 'error', listener: (error: Error) => void): this;
 
@@ -101,13 +103,17 @@ class MDNSDiscovery extends EventEmitter implements Discovery {
   }
 }
 
-async function fetchWithRetries(url: string, options: DiscoveryOptions = {
-  retries: 5,
-  retryInterval: 2000,
-  authentication: {
-    schema: 'nosec',
+async function fetchWithRetries(
+  url: string,
+  options: DiscoveryOptions = {
+    retries: 5,
+    retryInterval: 2000,
+    authentication: {
+      schema: 'nosec',
+    },
   },
-}, retryCount = 0): Promise<Response> {
+  retryCount = 0
+): Promise<Response> {
   try {
     return await fetch(url, { headers: getHeaders(options.authentication) });
   } catch (e) {
@@ -117,15 +123,19 @@ async function fetchWithRetries(url: string, options: DiscoveryOptions = {
     } else {
       return new Promise((resolve, reject) => {
         setTimeout(() => {
-          fetchWithRetries(url, options, ++retryCount).then(resolve).catch(reject);
+          fetchWithRetries(url, options, ++retryCount)
+            .then(resolve)
+            .catch(reject);
         }, options.retryInterval);
       });
     }
   }
 }
 
-export async function direct(url: string, options?: DiscoveryOptions):
-Promise<[Record<string, unknown>, boolean]> {
+export async function direct(
+  url: string,
+  options?: DiscoveryOptions
+): Promise<[Record<string, unknown>, boolean]> {
   const href = url.replace(/\/$/, '');
 
   if (!tdsCache.has(href)) {
@@ -152,7 +162,6 @@ Promise<[Record<string, unknown>, boolean]> {
   if (tdsCache.get(href)?.digest === dig) {
     return [tdsCache.get(href)!.td, true];
   }
-
 
   try {
     const td = JSON.parse(text);

@@ -10,7 +10,6 @@ import { Property } from 'gateway-addon';
 import { Any, Property as PropertySchema } from 'gateway-addon/lib/schema';
 import WoTDevice from './wot-device';
 
-
 export class WoTDeviceProperty<T extends Any> extends Property<T> {
   private readonly _device: WoTDevice;
 
@@ -29,4 +28,4 @@ export class WoTDeviceProperty<T extends Any> extends Property<T> {
     const thing: ConsumedThing = this._device.thing;
     return thing.readProperty(this.getName());
   }
-};
+}
