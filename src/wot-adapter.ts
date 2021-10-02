@@ -211,14 +211,16 @@ export class WoTAdapter extends Adapter {
 
   handleDeviceSaved(_deviceId: string, _device: DeviceWithoutIdSchema): void {
     const device: WoTDevice = this.getDevice(_deviceId) as WoTDevice;
-    device && device.start();
     if(!device) {
       // Sometime this method is called before we have loaded the device
       // we need to store the id so that we can start the device when
       // is fully loaded in the adapter
       console.warn('Device', _deviceId, 'has been saved before loading');
       this.savedDeviceIds.add(_deviceId);
+      return;
     }
+
+    device.start();
   }
 
   startPairing(_timeoutSeconds: number): void {
