@@ -25,7 +25,6 @@ type WoTDiscoveredDeviceData = {
 // TODO: specify exact types for `any` (everywhere where possible)
 
 export class WoTAdapter extends Adapter {
-
   public pollInterval: number = POLL_INTERVAL;
 
   private discovery?: Discovery;
@@ -50,14 +49,12 @@ export class WoTAdapter extends Adapter {
     }
     if (
       this.continuos_discovery == true ||
-        (this.continuos_discovery == false && this.on_pairing == true)
+      (this.continuos_discovery == false && this.on_pairing == true)
     ) {
       this.on_discovery = true;
       this.discovery = multicast();
 
-
-      this.discovery.on('foundThing', (data: {
-        url: string; td: Record<string, unknown>;}) => {
+      this.discovery.on('foundThing', (data: { url: string; td: Record<string, unknown> }) => {
         this.addDevice(data.url, data.td);
       });
       this.discovery.on('lostThing', (url: string) => {
@@ -88,7 +85,7 @@ export class WoTAdapter extends Adapter {
     this.srv.addClientFactory(new HttpClientFactory());
     this.wot = await this.srv.start();
 
-    this.continuos_discovery && await this.initDiscovery();
+    this.continuos_discovery && (await this.initDiscovery());
   }
 
   async unload(): Promise<void> {
@@ -101,8 +98,12 @@ export class WoTAdapter extends Adapter {
     return super.unload();
   }
 
-  async loadThing(url: string, retries?: number, retryInterval?: number,
-                  authdata: AuthenticationDataType = { schema: 'nosec' }): Promise<void> {
+  async loadThing(
+    url: string,
+    retries?: number,
+    retryInterval?: number,
+    authdata: AuthenticationDataType = { schema: 'nosec' }
+  ): Promise<void> {
     const href = url.replace(/\/$/, '');
 
     const [data, cached] = await direct(href, { retries, retryInterval, authentication: authdata });
@@ -136,7 +137,7 @@ export class WoTAdapter extends Adapter {
       }
       const device = await this.addDevice(href, thing, authdata);
 
-      if(this.savedDeviceIds.has(device.getId())) {
+      if (this.savedDeviceIds.has(device.getId())) {
         // The device was saved on adapter startup
         // we need to manually start it now.
         console.warn('Device', device.getId(), 'was previously saved. starting it now');
@@ -184,8 +185,11 @@ export class WoTAdapter extends Adapter {
   }
 
   // TODO: Which parameters should we retain/add?
-  async addDevice(url: string, td: Record<string, unknown>, authdata?: AuthenticationDataType):
-  Promise<Device> {
+  async addDevice(
+    url: string,
+    td: Record<string, unknown>,
+    authdata?: AuthenticationDataType
+  ): Promise<Device> {
     if (!this.wot) {
       throw new Error('Unitilized device; call initDiscovery before adding a device');
     }
@@ -211,7 +215,7 @@ export class WoTAdapter extends Adapter {
 
   handleDeviceSaved(_deviceId: string, _device: DeviceWithoutIdSchema): void {
     const device: WoTDevice = this.getDevice(_deviceId) as WoTDevice;
-    if(!device) {
+    if (!device) {
       // Sometime this method is called before we have loaded the device
       // we need to store the id so that we can start the device when
       // is fully loaded in the adapter
@@ -240,7 +244,6 @@ export class WoTAdapter extends Adapter {
   }
 }
 
-
 export default async function loadWoTAdapter(manager: AddonManagerProxy): Promise<void> {
   try {
     const configuration: WoTAdapterConfig = new WoTAdapterConfig(manifest.id);
@@ -251,14 +254,9 @@ export default async function loadWoTAdapter(manager: AddonManagerProxy): Promis
     const retries = configuration.retries;
     const retryInterval = configuration.retryInterval;
 
-    for(const s of configuration.urlList()) {
+    for (const s of configuration.urlList()) {
       const authentication = configuration.configData(s);
-      await adapter.loadThing(
-        s,
-        retries,
-        retryInterval,
-        authentication
-      );
+      await adapter.loadThing(s, retries, retryInterval, authentication);
     }
   } catch (error) {
     console.error(error);

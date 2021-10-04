@@ -1,25 +1,28 @@
 import { Database } from 'gateway-addon';
 
-export type AuthenticationDataType = NoSecurityData | JSONWebTokenSecuiryData |
-BasicSecurityData | DigestSecurityData;
+export type AuthenticationDataType =
+  | NoSecurityData
+  | JSONWebTokenSecuiryData
+  | BasicSecurityData
+  | DigestSecurityData;
 
 interface AuthenticationData {
   schema: string;
-};
+}
 
-export interface NoSecurityData extends AuthenticationData{
+export interface NoSecurityData extends AuthenticationData {
   schema: 'nosec';
 }
-export interface JSONWebTokenSecuiryData extends AuthenticationData{
+export interface JSONWebTokenSecuiryData extends AuthenticationData {
   schema: 'jwt';
   token: string;
 }
-export interface BasicSecurityData extends AuthenticationData{
+export interface BasicSecurityData extends AuthenticationData {
   schema: 'basic';
   user: string;
   password: string;
 }
-export interface DigestSecurityData extends AuthenticationData{
+export interface DigestSecurityData extends AuthenticationData {
   schema: 'digest';
   digest: string;
 }
@@ -77,13 +80,13 @@ export class WoTAdapterConfig {
     return this._retryInterval;
   }
 
-
   public constructor(name: string, path?: string) {
     this.db = new Database(name, path);
   }
 
-  private isAuthenticationData(configuration: unknown):
-                              configuration is (WebThingEndpoint['authentication'] | undefined) {
+  private isAuthenticationData(
+    configuration: unknown
+  ): configuration is WebThingEndpoint['authentication'] | undefined {
     // eslint-disable-next-line no-undefined
     return configuration === undefined || !!(configuration as AuthenticationDataType).schema;
   }
@@ -92,21 +95,22 @@ export class WoTAdapterConfig {
     await this.db.open();
     const db_config: Record<string, unknown> = await this.db.loadConfig();
 
-    this._retries = db_config.retries as number ?? this._retries;
-    this._pollInterval = db_config.pollInterval as number ?? this._pollInterval;
-    this._retryInterval = db_config.retryInterval as number ?? this.retryInterval;
-    this._continuos_discovery = db_config.continuosDiscovery as boolean ?? this.continuosDiscovery;
-    this._useObservable = db_config.useObservable as boolean ?? this._useObservable;
+    this._retries = (db_config.retries as number) ?? this._retries;
+    this._pollInterval = (db_config.pollInterval as number) ?? this._pollInterval;
+    this._retryInterval = (db_config.retryInterval as number) ?? this.retryInterval;
+    this._continuos_discovery =
+      (db_config.continuosDiscovery as boolean) ?? this.continuosDiscovery;
+    this._useObservable = (db_config.useObservable as boolean) ?? this._useObservable;
 
     const endpoints = db_config.endpoints as WebThingEndpoint[];
-    if(!endpoints) {
+    if (!endpoints) {
       console.warn('No endpoints found');
       return;
     }
 
     for (const endpoint of endpoints) {
       // check for type correctnes
-      if(typeof endpoint.url !== 'string') {
+      if (typeof endpoint.url !== 'string') {
         console.log('Invalid configuration data found !', endpoint);
       }
 
@@ -148,13 +152,12 @@ export class WoTAdapterConfig {
     let result;
     const data = this.stored_endpoints.get(url);
 
-    if(data !== null) {
+    if (data !== null) {
       result = data;
     }
 
     return result;
   }
-
 
   public containsUrl(u: string): boolean {
     return this.stored_endpoints.has(u);
