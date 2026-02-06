@@ -89,7 +89,7 @@
                     "type": "boolean"
                 },
                 "useObservable": {
-                    "description": "Use observable forms when they are avaible",
+                    "description": "Use observable forms when they are available",
                     "type": "boolean"
                 }
             }
