@@ -112,7 +112,7 @@ export default class WoTDevice extends Device {
     if (schProp.writeOnly === true) {
       return;
     }
-    // see if it can be observerd
+    // see if it can be observed
     if (schProp.observable && this.configuration.useObservable) {
       this.thing.observeProperty(property.getName(), (value) => {
         property.setCachedValueAndNotify(value);
